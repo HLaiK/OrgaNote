@@ -3,12 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Website</title>
+    <title>OrgaNote</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Welcome to OrgaNote!</h1>
-    <p>Enter your To-Dos</p>
+     <div class="container">
+        <header>
+            <h1>OrgaNote</h1>
+            <p class="tagline">Stay organized, stay productive</p>
+        </header>
+
+        <main>
+            <section class="add-task-section">
+                <h2>Add New Task</h2>
+                <form id="taskForm">
+                    <div class="form-group">
+                        <input 
+                            type="text" 
+                            id="taskTitle" 
+                            placeholder="Task name (eg. Hw2)" 
+                            required
+                        >
+                    </div>
+            </section>
+
+            <section class="tasks-section">
+                <h2>Your Tasks</h2>
+                <div id="tasksList" class="tasks-list">
+                    <p class="no-tasks">No tasks yet. Add one above to get started!</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

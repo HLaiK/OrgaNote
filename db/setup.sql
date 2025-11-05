@@ -1,4 +1,3 @@
--- Create tasks table
 CREATE TABLE IF NOT EXISTS tasks (
   id SERIAL PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
@@ -11,7 +10,6 @@ CREATE TABLE IF NOT EXISTS tasks (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create user preferences table
 CREATE TABLE IF NOT EXISTS user_preferences (
   id SERIAL PRIMARY KEY,
   sort_by VARCHAR(50) DEFAULT 'priority',
@@ -21,6 +19,5 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default preferences
 INSERT INTO user_preferences (sort_by, default_category, auto_categorize)
 VALUES ('priority', 'personal', true);
