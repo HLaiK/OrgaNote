@@ -1,0 +1,39 @@
+### Get all tasks
+GET http://localhost:3002/api/tasks
+
+### Get one task
+GET http://localhost:3002/api/tasks/3
+
+### Create a task
+POST http://localhost:3002/api/tasks
+Content-Type: application/json
+
+{
+  "title": "REST Client Test",
+  "description": "Testing via VS Code",
+  "category": "school",
+  "priority": 2,
+  "due_date": "2026-02-05T12:00:00Z"
+}
+
+### Update a task
+PUT http://localhost:3002/api/tasks/3
+Content-Type: application/json
+
+{
+  "title": "Updated Task Title",
+  "description": "Updated description",
+  "category": "work",
+  "priority": 3,
+  "due_date": "2026-02-10T12:00:00Z",
+  "status": "in-progress"
+}
+
+### Delete a task
+DELETE http://localhost:3002/api/tasks/3
+
+### NLP organize
+POST /api/nlp/organize
+Content-Type: application/json
+x-user-id: user_test
+

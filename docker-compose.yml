@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: organote
+      POSTGRES_PASSWORD: organote
+      POSTGRES_DB: organote
+    ports:
+      - "5432:5432"
+    volumes:
+      - organote_postgres_data:/var/lib/postgresql/data
+      - ./backend/db:/docker-entrypoint-initdb.d
+
+volumes:
+  organote_postgres_data:
