@@ -66,7 +66,7 @@ const styles = {
     fontSize: "1rem",
     borderRadius: "6px",
     border: "none",
-    backgroundColor: "#4a90e2",
+    backgroundColor: "rgba(255,255,255,.5)",
     color: "white",
     cursor: "pointer"
   }

@@ -62,50 +62,39 @@ function parseLine(line) {
 }
 
 router.post("/organize", async (req, res) => {
-  let body = "";
+  try {
+    const raw_input = req.body.raw_input;
+    const userId = req.headers["x-user-id"];
 
-  // Manually read raw body (bypasses broken middleware)
-  req.on("data", (chunk) => {
-    body += chunk.toString();
-  });
-
-  req.on("end", async () => {
-    try {
-      // Parse manually
-      const parsed = JSON.parse(body);
-      const raw_input = parsed.raw_input;
-      const userId = req.headers["x-user-id"];
-
-      if (!raw_input) {
-        return res.status(400).json({ error: "raw_input is required" });
-      }
-
-      const lines = raw_input
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0);
-
-      const parsedTasks = lines.map(parseLine);
-
-      const created = [];
-
-      for (const t of parsedTasks) {
-        const result = await pool.query(
-          `INSERT INTO tasks (title, description, category, priority, due_date, user_id)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING *`,
-          [t.title, null, null, t.priority, t.due_date, userId],
-        );
-
-        created.push(result.rows[0]);
-      }
-
-      res.json({ created });
-    } catch (err) {
-      console.error("TEMP NLP ERROR:", err);
-      res.status(400).json({ error: "Invalid JSON received" });
+    if (!raw_input) {
+      return res.status(400).json({ error: "raw_input is required" });
     }
-  });
+
+    const lines = raw_input
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    const parsedTasks = lines.map(parseLine);
+
+    const created = [];
+
+    for (const t of parsedTasks) {
+      const result = await pool.query(
+        `INSERT INTO tasks (title, description, category, priority, due_date, user_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [t.title, null, null, t.priority, t.due_date, userId],
+      );
+
+      created.push(result.rows[0]);
+    }
+
+    res.json({ created });
+  } catch (err) {
+    console.error("TEMP NLP ERROR:", err);
+    res.status(400).json({ error: "Invalid JSON received" });
+  }
 });
 
 module.exports = router;

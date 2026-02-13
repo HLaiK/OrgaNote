@@ -10,8 +10,12 @@ body {
   background-color: #A7C4A0; /* soft green */
   font-family: 'Poppins', sans-serif;
   color: #2A2A2A;
-  height: 100vh;
-  overflow: hidden; /* prevents scrollbars on dashboard */
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 /* Smooth text rendering */
