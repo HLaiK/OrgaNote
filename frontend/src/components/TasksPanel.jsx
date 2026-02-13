@@ -1,34 +1,34 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api";
 
-export default function TasksPanel() {
+export default function TasksPanel({ refreshTrigger }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function loadTasks() {
-      try {
-        const userId = localStorage.getItem("organote_user_id");
-        if (!userId) {
-          setError("No user ID found. Please refresh the page.");
-          setLoading(false);
-          return;
-        }
-
-        const data = await apiFetch("/tasks");
-        setTasks(data || []);
-        setError(null);
-      } catch (err) {
-        console.error("Error loading tasks:", err);
-        setError(err.message || "Failed to load tasks");
-      } finally {
+  const loadTasks = async () => {
+    try {
+      const userId = localStorage.getItem("organote_user_id");
+      if (!userId) {
+        setError("No user ID found. Please refresh the page.");
         setLoading(false);
+        return;
       }
-    }
 
+      const data = await apiFetch("/tasks");
+      setTasks(data || []);
+      setError(null);
+    } catch (err) {
+      console.error("Error loading tasks:", err);
+      setError(err.message || "Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadTasks();
-  }, []);
+  }, [refreshTrigger]);
 
   const handleToggleComplete = async (taskId, currentStatus) => {
     try {
@@ -71,14 +71,23 @@ export default function TasksPanel() {
         <li key={task.id} style={styles.item}>
           <div style={styles.itemContent}>
             <div style={styles.taskInfo}>
-              <div style={styles.title}>{task.title}</div>
+              <div style={{ ...styles.title, textDecoration: task.completed ? "line-through" : "none" }}>
+                {task.title}
+              </div>
               {task.due_date && (
                 <div style={styles.date}>
-                  Due: {new Date(task.due_date).toLocaleDateString()}
+                  Due: {new Date(task.due_date).toLocaleDateString()} at {new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               )}
             </div>
             <div style={styles.actions}>
+              <button
+                style={styles.editButton}
+                onClick={() => {}}
+                title="Edit"
+              >
+                ✏️
+              </button>
               <button
                 style={styles.checkButton}
                 onClick={() => handleToggleComplete(task.id, task.completed)}
@@ -157,6 +166,21 @@ const styles = {
     display: "flex",
     gap: "8px",
     flexShrink: 0
+  },
+  editButton: {
+    background: "rgba(255,255,255,0.2)",
+    border: "2px solid rgba(255,255,255,0.3)",
+    borderRadius: "4px",
+    width: "32px",
+    height: "32px",
+    cursor: "pointer",
+    color: "rgba(255,255,255,0.8)",
+    fontSize: "1rem",
+    fontWeight: "bold",
+    transition: "all 0.2s",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
   },
   checkButton: {
     background: "rgba(255,255,255,0.2)",

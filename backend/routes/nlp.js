@@ -42,12 +42,19 @@ function classifyPriority(text) {
 }
 
 function parseLine(line) {
-  const due = chrono.parseDate(line);
   const priority = classifyPriority(line);
+
+  // Use chrono.parse for more detailed info (includes start date/time)
+  const parsed = chrono.parse(line);
+  let due = null;
+
+  if (parsed.length > 0) {
+    // Get the start date which includes time
+    due = parsed[0].start.date();
+  }
 
   // Clean title by removing date phrases Chrono recognizes
   let title = line;
-  const parsed = chrono.parse(line);
   if (parsed.length > 0) {
     parsed.forEach((p) => {
       title = title.replace(p.text, "").trim();

@@ -50,24 +50,31 @@ const styles = {
   container: {
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
+    gap: "12px",
     height: "100%"
   },
   textarea: {
     flex: 1,
-    padding: "10px",
-    fontSize: "1rem",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-    resize: "none"
+    padding: "12px",
+    fontSize: "0.95rem",
+    borderRadius: "8px",
+    border: "2px solid rgba(255,255,255,0.3)",
+    backgroundColor: "rgba(255,255,255,0.1)",
+    color: "white",
+    resize: "vertical",
+    minHeight: "120px",
+    fontFamily: "inherit",
+    backdropFilter: "blur(5px)"
   },
   button: {
-    padding: "10px",
+    padding: "12px",
     fontSize: "1rem",
-    borderRadius: "6px",
-    border: "none",
-    backgroundColor: "rgba(255,255,255,.5)",
+    borderRadius: "8px",
+    border: "2px solid rgba(255,255,255,0.3)",
+    backgroundColor: "rgba(255,255,255,0.2)",
     color: "white",
-    cursor: "pointer"
+    cursor: "pointer",
+    fontWeight: "500",
+    transition: "all 0.2s"
   }
 };

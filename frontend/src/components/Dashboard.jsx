@@ -9,7 +9,7 @@ const styles = {
   container: {
     display: "grid",
     gridTemplateColumns: "250px 1fr",
-    gridTemplateRows: "1fr auto",
+    gridTemplateRows: "1fr",
     gap: "20px",
     padding: "20px",
     height: "100vh",
@@ -61,6 +61,21 @@ const styles = {
   },
 
   settingsIcon: {
+    background: "none",
+    border: "none",
+    fontSize: "1.5rem",
+    cursor: "pointer",
+    color: "rgba(255,255,255,0.7)",
+    padding: "5px",
+    transition: "color 0.2s"
+  },
+
+  headerIcons: {
+    display: "flex",
+    gap: "10px"
+  },
+
+  headerButton: {
     background: "none",
     border: "none",
     fontSize: "1.5rem",
@@ -147,9 +162,12 @@ const styles = {
 
 export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
   const [bgColor, setBgColor] = useState(theme.colors.background);
   const [gradientColor, setGradientColor] = useState("#B8D4B0");
   const [useGradient, setUseGradient] = useState(false);
+  const [fontColor, setFontColor] = useState("white");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Apply color changes to the document
   React.useEffect(() => {
@@ -162,6 +180,10 @@ export default function Dashboard() {
       }
     }
   }, [bgColor, gradientColor, useGradient]);
+
+  const handleTasksCreated = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   return (
     <div style={{ ...styles.container, background: bgColor }} data-dashboard-container>
@@ -181,22 +203,47 @@ export default function Dashboard() {
       {/* RIGHT: Tasks */}
       <div style={{ ...styles.panel, ...styles.mainContent }}>
         <div style={styles.tasksHeader}>
-          <h2 style={styles.title}>Tasks Organized</h2>
-          <button
-            style={styles.settingsIcon}
-            onClick={() => setShowSettings(true)}
-            title="Settings"
-          >
-            ⚙️
-          </button>
+          <h2 style={{ ...styles.title, color: fontColor }}>Tasks Organized</h2>
+          <div style={styles.headerIcons}>
+            <button
+              style={styles.headerButton}
+              onClick={() => setShowAddTask(true)}
+              title="Add task"
+            >
+              ➕
+            </button>
+            <button
+              style={styles.headerButton}
+              onClick={() => setShowSettings(true)}
+              title="Settings"
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
-        <TasksPanel />
+        <TasksPanel refreshTrigger={refreshTrigger} />
       </div>
 
-      {/* BOTTOM: NLP Input */}
-      <div style={styles.bottomInput}>
-        <UnstructuredInput />
-      </div>
+      {/* Add Task Modal */}
+      {showAddTask && (
+        <div style={styles.modalOverlay} onClick={() => setShowAddTask(false)}>
+          <div style={{ ...styles.modal, maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
+            <button
+              style={styles.closeButton}
+              onClick={() => setShowAddTask(false)}
+            >
+              ✕
+            </button>
+
+            <h3 style={styles.modalTitle}>Add Tasks</h3>
+
+            <UnstructuredInput onTasksCreated={() => {
+              handleTasksCreated();
+              setShowAddTask(false);
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Settings Modal */}
       {showSettings && (
@@ -221,6 +268,16 @@ export default function Dashboard() {
                 type="color"
                 value={bgColor}
                 onChange={(e) => setBgColor(e.target.value)}
+                style={styles.colorInput}
+              />
+            </div>
+
+            <div style={styles.settingItem}>
+              <label style={styles.settingLabel}>Font color</label>
+              <input
+                type="color"
+                value={fontColor}
+                onChange={(e) => setFontColor(e.target.value)}
                 style={styles.colorInput}
               />
             </div>
