@@ -1,12 +1,13 @@
 import useUser from "./hooks/useUser";
 import HomePage from "./components/HomePage";
 import Dashboard from "./components/Dashboard";
+import { useState } from "react";
 
 function App() {
   const userId = useUser();
-  if (!userId) return null;
+  const [hasVisited, setHasVisited] = useState(() => localStorage.getItem("organote_has_visited"));
 
-  const hasVisitedBefore = localStorage.getItem("organote_has_visited");
+  if (!userId) return null;
 
   const savedBg = localStorage.getItem("organote_bg_color"); 
   const savedGradient = localStorage.getItem("organote_use_gradient"); 
@@ -20,10 +21,13 @@ function App() {
     fontColor: savedFontColor 
   };
 
-  if (!hasVisitedBefore) {
+  if (!hasVisited) {
     return <HomePage 
     themeColor={themeSettings.bgColor}
-    onFinish={() => localStorage.setItem("organote_has_visited", "true")} />;
+    onFinish={() => {
+      localStorage.setItem("organote_has_visited", "true");
+      setHasVisited("true");
+    }} />;
   }
 
   return <Dashboard themeColor={themeSettings.bgColor}/>;
