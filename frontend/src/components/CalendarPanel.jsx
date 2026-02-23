@@ -73,8 +73,8 @@ export default function CalendarPanel() {
       </div>
 
       <div style={styles.weekDays}>
-        {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
-          <div key={day} style={styles.weekDay}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+          <div key={`weekday-${index}`} style={styles.weekDay}>
             {day}
           </div>
         ))}

@@ -37,6 +37,27 @@ export const theme = {
 
 export const THEME_STORAGE_KEY = "organote_theme";
 
+function sanitizeGradient(gradientStr) {
+  if (!gradientStr || !gradientStr.includes("linear-gradient")) {
+    return null;
+  }
+  try {
+    // Extract colors using regex - be more flexible about the format
+    const match = gradientStr.match(
+      /linear-gradient\s*\([^,]+,\s*([#\w]+)[^,]*,\s*([#\w]+)[^)]*\)/,
+    );
+    if (match) {
+      const color1 = match[1].trim();
+      const color2 = match[2].trim();
+      // Reconstruct a clean gradient
+      return `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)`;
+    }
+  } catch (e) {
+    console.error("[theme.js] Error sanitizing gradient:", e);
+  }
+  return null;
+}
+
 export function applySavedTheme() {
   try {
     const raw = localStorage.getItem(THEME_STORAGE_KEY);
@@ -48,8 +69,20 @@ export function applySavedTheme() {
       console.log("[applySavedTheme] No saved theme found");
       return;
     }
-    const saved = JSON.parse(raw);
+    let saved = JSON.parse(raw);
     console.log("[applySavedTheme] Parsed theme:", saved);
+
+    // Sanitize malformed gradients
+    if (saved.background && saved.background.includes("linear-gradient")) {
+      const sanitized = sanitizeGradient(saved.background);
+      if (sanitized) {
+        console.log("[applySavedTheme] Fixed malformed gradient");
+        saved.background = sanitized;
+        // Update the saved theme with the fixed version
+        localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(saved));
+      }
+    }
+
     if (saved.background) {
       console.log("[applySavedTheme] Applying background:", saved.background);
       document.documentElement.style.setProperty(
@@ -68,9 +101,16 @@ export function applySavedTheme() {
         "--scroll-thumb",
         saved.button,
       );
+    } else {
+      // Default to a neutral color that works on most backgrounds
+      document.documentElement.style.setProperty("--btn-color", "#4A90E2");
+      document.documentElement.style.setProperty("--scroll-thumb", "#4A90E2");
     }
     if (saved.text) {
       document.documentElement.style.setProperty("--text-color", saved.text);
+    } else {
+      // If no text color saved, use dark text which works on most backgrounds
+      document.documentElement.style.setProperty("--text-color", "#2A2A2A");
     }
   } catch (e) {
     // ignore

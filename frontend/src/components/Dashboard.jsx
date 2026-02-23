@@ -4,6 +4,7 @@ import { Dropdown } from "antd";
 import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
+import KanbanView from "./KanbanView";
 import UnstructuredInput from "./UnstructuredInputPanel";
 import { theme } from "../theme";
 import { apiFetch } from "../api";
@@ -18,7 +19,9 @@ const styles = {
     height: "100vh",
     background: `var(--bg-color, ${theme.colors.background})`,
     overflowY: "auto",
-    overflowX: "hidden"
+    overflowX: "hidden",
+    scrollbarWidth: "thin",
+    scrollbarColor: "rgba(255,255,255,0.2) transparent"
   },
 
   sidebar: {
@@ -217,16 +220,24 @@ export default function Dashboard({themeColor}) {
   const [fontColor, setFontColor] = useState(() => {
     try {
       const raw = localStorage.getItem("organote_theme");
-      if (!raw) return "#ffffff";
+      if (!raw) return "#2A2A2A";
       const saved = JSON.parse(raw);
-      return saved.text || "#ffffff";
+      return saved.text || "#2A2A2A";
     } catch (e) {
-      return "#ffffff";
+      return "#2A2A2A";
     }
   });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [customizeThemeOpen, setCustomizeThemeOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('organote_viewMode') || 'list';
+    } catch (e) {
+      return 'list';
+    }
+  });
   // Flag to prevent persist effects from running during initialization
   const isInitialMount = React.useRef(true);
   // Load notification settings from localStorage on initial render
@@ -261,25 +272,37 @@ export default function Dashboard({themeColor}) {
       const saved = JSON.parse(raw);
       console.log('[Dashboard] Mount effect: parsed saved theme:', saved);
       if (saved.background) {
-        console.log('[Dashboard] Mount effect: applying saved background:', saved.background);
-        document.documentElement.style.setProperty("--bg-color", saved.background);
-        // Also apply directly to body
-        document.body.style.background = saved.background;
-        // try to use saved background as initial bgColor; if gradient, extract colors
+        let bgToUse = saved.background;
+        // Check if gradient is malformed and fix it
         if (saved.background.includes("linear-gradient")) {
+          const sanitized = sanitizeGradient(saved.background);
+          if (sanitized) {
+            bgToUse = sanitized;
+            console.log('[Dashboard] Mount effect: sanitized malformed gradient:', bgToUse);
+            // Update saved theme with clean gradient
+            saved.background = bgToUse;
+            localStorage.setItem("organote_theme", JSON.stringify(saved));
+          }
+        }
+        console.log('[Dashboard] Mount effect: applying saved background:', bgToUse);
+        document.documentElement.style.setProperty("--bg-color", bgToUse);
+        // Also apply directly to body
+        document.body.style.background = bgToUse;
+        // try to use saved background as initial bgColor; if gradient, extract colors
+        if (bgToUse.includes("linear-gradient")) {
           setUseGradient(true);
           // try to parse two colors from the gradient string
-          const m = saved.background.match(/linear-gradient\([^,]+,\s*([^,]+),\s*([^\)]+)\)/);
+          const m = bgToUse.match(/linear-gradient\([^,]+,\s*([^,]+),\s*([^\)]+)\)/);
           if (m) {
             const c1 = m[1].trim().replace(/\s+100%$/, '').replace(/,$/, '');
             const c2 = m[2].trim().replace(/\s+100%$/, '').replace(/,$/, '');
             setBgColor(c1);
             setGradientColor(c2);
           } else {
-            setBgColor(saved.background);
+            setBgColor(bgToUse);
           }
         } else {
-          setBgColor(saved.background);
+          setBgColor(bgToUse);
         }
       }
       if (saved.button) {
@@ -400,12 +423,41 @@ export default function Dashboard({themeColor}) {
     return match ? match[0] : ('#ffffff');
   };
 
+  // Validate and fix malformed gradient strings
+  const sanitizeGradient = (gradientStr) => {
+    if (!gradientStr || !gradientStr.includes("linear-gradient")) {
+      return null;
+    }
+    try {
+      // Extract colors using regex - be more flexible about the format
+      const match = gradientStr.match(/linear-gradient\s*\([^,]+,\s*([#\w]+)[^,]*,\s*([#\w]+)[^)]*\)/);
+      if (match) {
+        const color1 = match[1].trim();
+        const color2 = match[2].trim();
+        // Reconstruct a clean gradient
+        return `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)`;
+      }
+    } catch (e) {
+      console.error("Error sanitizing gradient:", e);
+    }
+    return null;
+  };
+
   // helper to merge and save a background into organote_theme immediately
   const saveBackgroundToTheme = (backgroundValue, gradientFlag, gradientVal) => {
     try {
       const raw = localStorage.getItem("organote_theme");
       const current = raw ? JSON.parse(raw) : {};
-      const bgStr = gradientFlag ? `linear-gradient(135deg, ${backgroundValue} 0%, ${gradientVal} 100%)` : backgroundValue;
+      let bgStr = gradientFlag ? `linear-gradient(135deg, ${backgroundValue} 0%, ${gradientVal} 100%)` : backgroundValue;
+      
+      // Sanitize if it's a gradient
+      if (bgStr.includes("linear-gradient")) {
+        const sanitized = sanitizeGradient(bgStr);
+        if (sanitized) {
+          bgStr = sanitized;
+        }
+      }
+      
       current.background = bgStr;
       console.log('[Theme] Saving background to organote_theme:', bgStr);
       localStorage.setItem("organote_theme", JSON.stringify(current));
@@ -436,6 +488,15 @@ export default function Dashboard({themeColor}) {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  // Persist view mode to localStorage when it changes
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('organote_viewMode', viewMode);
+    } catch (e) {
+      console.error('Error saving view mode:', e);
+    }
+  }, [viewMode]);
+
   return (
     <div style={styles.container} data-dashboard-container>
       {/* LEFT SIDEBAR */}
@@ -452,7 +513,13 @@ export default function Dashboard({themeColor}) {
       </div>
 
       {/* RIGHT: Tasks */}
-      <div style={{ ...styles.panel, ...styles.mainContent }}>
+      <div style={{ 
+        ...styles.panel, 
+        ...styles.mainContent,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
         <div style={styles.tasksHeader}>
           <h2 style={{ ...styles.title, color: fontColor }}>Tasks Organized</h2>
           <div style={styles.headerIcons}>
@@ -472,7 +539,78 @@ export default function Dashboard({themeColor}) {
             </button>
           </div>
         </div>
-        <TasksPanel refreshTrigger={refreshTrigger} />
+
+        {/* View Mode Toggle Buttons and Search */}
+        <div style={{ display: 'flex', gap: '16px', padding: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <button
+              onClick={() => setViewMode('list')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: viewMode === 'list' ? 'var(--btn-color, #A7C4A0)' : 'var(--text-color, white)',
+                fontSize: '1rem',
+                cursor: 'pointer',
+                fontWeight: viewMode === 'list' ? 'bold' : 'normal',
+                textDecoration: viewMode === 'list' ? 'underline' : 'none',
+                padding: '4px 8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: viewMode === 'kanban' ? 'var(--btn-color, #A7C4A0)' : 'var(--text-color, white)',
+                fontSize: '1rem',
+                cursor: 'pointer',
+                fontWeight: viewMode === 'kanban' ? 'bold' : 'normal',
+                textDecoration: viewMode === 'kanban' ? 'underline' : 'none',
+                padding: '4px 8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              Kanban
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              color: 'var(--text-color, #2A2A2A)',
+              fontSize: '0.9rem',
+              outline: 'none',
+              minWidth: '150px',
+              transition: 'all 0.2s',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            }}
+          />
+        </div>
+
+        {/* Conditional View Rendering */}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {viewMode === 'list' ? (
+            <TasksPanel refreshTrigger={refreshTrigger} searchQuery={searchQuery} />
+          ) : (
+            <KanbanView refreshTrigger={refreshTrigger} searchQuery={searchQuery} />
+          )}
+        </div>
       </div>
 
       {/* Add Task Modal */}

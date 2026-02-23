@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { EditOutlined, CheckOutlined, DeleteOutlined, CloseOutlined } from "@ant-design/icons";
 import { apiFetch } from "../api";
 
-export default function TasksPanel({ refreshTrigger }) {
+export default function TasksPanel({ refreshTrigger, searchQuery = '' }) {
   const [tasks, setTasks] = useState([]);
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -121,10 +121,15 @@ export default function TasksPanel({ refreshTrigger }) {
     return <div style={styles.emptyText}>No tasks yet. Add some using the input below!</div>;
   }
 
+  // Filter tasks based on search query
+  const filteredTasks = tasks.filter(task =>
+    task.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <>
       <ul style={styles.list}>
-        {tasks.map((task) => (
+        {filteredTasks.map((task) => (
           <li key={task.id} style={styles.item}>
             <div style={styles.itemContent}>
               <div style={styles.taskInfo}>
@@ -168,35 +173,65 @@ export default function TasksPanel({ refreshTrigger }) {
       {editingTask && (
         <div style={modalStyles.overlay} onClick={cancelEdit}>
           <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <h3 style={modalStyles.title}>Edit Task</h3>
               <button 
                 onClick={cancelEdit}
-                style={{ background: 'none', border: 'none', color: 'var(--text-color, white)', fontSize: '1.2rem', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-color, white)', fontSize: '1.8rem', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <CloseOutlined />
               </button>
             </div>
 
-            <label style={modalStyles.label}>Title</label>
-            <input
-              style={modalStyles.input}
-              value={editingTask.title || ""}
-              onChange={(e) => handleEditChange("title", e.target.value)}
-              placeholder="Task title"
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              <div>
+                <label style={modalStyles.label}>Title</label>
+                <input
+                  style={modalStyles.input}
+                  value={editingTask.title || ""}
+                  onChange={(e) => handleEditChange("title", e.target.value)}
+                  placeholder="Task title"
+                />
+              </div>
 
-            <label style={modalStyles.label}>Due date & time</label>
-            <input
-              type="datetime-local"
-              style={modalStyles.input}
-              value={editingTask.due_date ? localDateTimeForInput(editingTask.due_date) : ""}
-              onChange={(e) => handleEditChange("due_date", e.target.value ? e.target.value : null)}
-            />
+              <div>
+                <label style={modalStyles.label}>Due date & time</label>
+                <input
+                  type="datetime-local"
+                  style={{ ...modalStyles.input, marginBottom: 0 }}
+                  value={editingTask.due_date ? localDateTimeForInput(editingTask.due_date) : ""}
+                  onChange={(e) => handleEditChange("due_date", e.target.value ? e.target.value : null)}
+                />
+              </div>
+            </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button style={modalStyles.saveBtn} onClick={submitEdit}>Save</button>
-              <button style={modalStyles.cancelBtn} onClick={cancelEdit}>Cancel</button>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                style={modalStyles.saveBtn} 
+                onClick={submitEdit}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'var(--btn-color, #A7C4A0)';
+                  e.target.style.borderColor = 'var(--btn-color, #A7C4A0)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'rgba(255,255,255,0.2)';
+                  e.target.style.borderColor = 'rgba(255,255,255,0.3)';
+                }}
+              >
+                Save
+              </button>
+              <button 
+                style={modalStyles.cancelBtn} 
+                onClick={cancelEdit}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'rgba(255,255,255,0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'rgba(255,255,255,0.2)';
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -319,23 +354,71 @@ const modalStyles = {
     top: 0,
     right: 0,
     bottom: 0,
-    background: 'rgba(0,0,0,0.4)',
+    background: 'rgba(0,0,0,0.27)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2000
   },
   modal: {
-    background: 'white',
-    padding: 20,
-    borderRadius: 12,
+    border: '2px solid rgba(255,255,255,0.4)',
+    borderRadius: '12px',
+    padding: '30px',
+    maxWidth: '500px',
     width: '90%',
-    maxWidth: 480,
-    boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+    backdropFilter: 'blur(10px)'
   },
-  title: { margin: 0, marginBottom: 10 },
-  label: { fontSize: 12, marginTop: 8, marginBottom: 6, display: 'block' },
-  input: { width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ddd' },
-  saveBtn: { padding: '8px 12px', background: '#327641', color: 'white', border: 'none', borderRadius: 6 },
-  cancelBtn: { padding: '8px 12px', background: '#e0e0e0', border: 'none', borderRadius: 6 }
+  title: { 
+    margin: 0, 
+    marginBottom: 24,
+    fontSize: '1.8rem',
+    fontWeight: 'bold',
+    color: 'var(--text-color, white)',
+    fontStyle: 'italic'
+  },
+  label: { 
+    fontSize: '0.95rem', 
+    marginTop: 0,
+    marginBottom: 8, 
+    display: 'block',
+    fontWeight: '600',
+    color: 'var(--text-color, rgba(255,255,255,0.9))'
+  },
+  input: { 
+    width: '100%', 
+    padding: '12px', 
+    borderRadius: '8px', 
+    border: '2px solid rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    color: 'var(--text-color, white)',
+    fontFamily: 'inherit',
+    backdropFilter: 'blur(5px)',
+    marginBottom: '16px',
+    boxSizing: 'border-box',
+    fontSize: '0.95rem'
+  },
+  saveBtn: { 
+    flex: 1,
+    padding: '12px', 
+    background: 'rgba(255,255,255,0.2)', 
+    color: 'var(--text-color, white)', 
+    border: '2px solid rgba(255,255,255,0.3)', 
+    borderRadius: '8px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    transition: 'all 0.2s'
+  },
+  cancelBtn: { 
+    flex: 1,
+    padding: '12px', 
+    background: 'rgba(255,255,255,0.2)', 
+    border: '2px solid rgba(255,255,255,0.3)', 
+    borderRadius: '8px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    color: 'var(--text-color, white)',
+    fontSize: '1rem',
+    transition: 'all 0.2s'
+  }
 };
