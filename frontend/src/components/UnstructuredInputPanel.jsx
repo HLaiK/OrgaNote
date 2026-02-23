@@ -60,7 +60,7 @@ const styles = {
     borderRadius: "8px",
     border: "2px solid rgba(255,255,255,0.3)",
     backgroundColor: "rgba(255,255,255,0.1)",
-    color: "white",
+    color: "var(--text-color, white)",
     resize: "vertical",
     minHeight: "120px",
     fontFamily: "inherit",
@@ -72,7 +72,7 @@ const styles = {
     borderRadius: "8px",
     border: "2px solid rgba(255,255,255,0.3)",
     backgroundColor: "rgba(255,255,255,0.2)",
-    color: "white",
+    color: "var(--text-color, white)",
     cursor: "pointer",
     fontWeight: "500",
     transition: "all 0.2s"

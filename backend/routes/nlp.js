@@ -41,24 +41,49 @@ function classifyPriority(text) {
   return "low";
 }
 
+function parseRelativeTime(text) {
+  // Handle explicit relative time phrases like "in 30 minutes", "in 2 hours", etc.
+  const now = new Date();
+
+  // Pattern: "in X minutes/hours/days"
+  const inMatch = text.match(/in\s+(\d+)\s+(minute|hour|day)s?/i);
+  if (inMatch) {
+    const amount = parseInt(inMatch[1], 10);
+    const unit = inMatch[2].toLowerCase();
+    let ms = 0;
+
+    if (unit === "minute") ms = amount * 60 * 1000;
+    else if (unit === "hour") ms = amount * 60 * 60 * 1000;
+    else if (unit === "day") ms = amount * 24 * 60 * 60 * 1000;
+
+    return new Date(now.getTime() + ms);
+  }
+
+  return null;
+}
+
 function parseLine(line) {
   const priority = classifyPriority(line);
 
-  // Use chrono.parse for more detailed info (includes start date/time)
-  const parsed = chrono.parse(line);
-  let due = null;
-
-  if (parsed.length > 0) {
-    // Get the start date which includes time
-    due = parsed[0].start.date();
-  }
-
-  // Clean title by removing date phrases Chrono recognizes
+  // First check for explicit relative time phrases
+  let due = parseRelativeTime(line);
   let title = line;
-  if (parsed.length > 0) {
-    parsed.forEach((p) => {
-      title = title.replace(p.text, "").trim();
-    });
+
+  // If no relative time matched, use chrono for date parsing
+  if (!due) {
+    const parsed = chrono.parse(line);
+    if (parsed.length > 0) {
+      // Get the start date which includes time
+      due = parsed[0].start.date();
+
+      // Clean title by removing date phrases Chrono recognizes
+      parsed.forEach((p) => {
+        title = title.replace(p.text, "").trim();
+      });
+    }
+  } else {
+    // Remove the relative time phrase from title
+    title = title.replace(/in\s+\d+\s+(minute|hour|day)s?/i, "").trim();
   }
 
   return {

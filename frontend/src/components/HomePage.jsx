@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { apiFetch } from "../api";
 
-export default function HomePage({ onFinish }) {
+export default function HomePage({ onFinish, themeColor }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -11,13 +11,11 @@ export default function HomePage({ onFinish }) {
     setLoading(true);
 
     try {
-      // Send raw text to your NLP route 
       await apiFetch("/nlp/organize", {
         method: "POST",
         body: { raw_input: input }
       });
 
-      // Mark user as having completed intro
       onFinish();
     } catch (err) {
       console.error("NLP error:", err);
@@ -27,7 +25,12 @@ export default function HomePage({ onFinish }) {
   };
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        ...styles.container,
+        background: themeColor || styles.container.background,
+      }}
+    >
       <div style={styles.content}>
         <h1 style={styles.title}>OrgaNote</h1>
         <p style={styles.subtitle}>Organize your thoughts</p>
@@ -71,14 +74,14 @@ const styles = {
     fontSize: "4rem",
     fontStyle: "italic",
     fontWeight: "300",
-    color: "white",
+    color: "var(--text-color, white)",
     marginBottom: "0.5rem",
     fontFamily: "'Brush Script MT', cursive",
     letterSpacing: "2px"
   },
   subtitle: {
     fontSize: "1.2rem",
-    color: "rgba(255, 255, 255, 0.85)",
+    color: "var(--text-color, rgba(255, 255, 255, 0.85))",
     marginBottom: "2rem",
     fontWeight: "300",
     letterSpacing: "1px"
@@ -86,7 +89,7 @@ const styles = {
   label: {
     display: "block",
     fontSize: "0.95rem",
-    color: "rgba(255, 255, 255, 0.8)",
+    color: "var(--text-color, rgba(255, 255, 255, 0.8))",
     marginBottom: "1rem",
     fontWeight: "400"
   },
@@ -98,7 +101,7 @@ const styles = {
     borderRadius: "12px",
     border: "2px solid rgba(255, 255, 255, 0.3)",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    color: "rgba(255, 255, 255, 0.9)",
+    color: "var(--text-color, rgba(255, 255, 255, 0.9))",
     marginBottom: "1.5rem",
     fontFamily: "inherit",
     resize: "none",

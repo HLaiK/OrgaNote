@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 export default function CalendarPanel() {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 13)); // Feb 13, 2026
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -35,11 +35,12 @@ export default function CalendarPanel() {
     }
 
     // Days of the month
+    const today = new Date();
     for (let day = 1; day <= totalDays; day++) {
       const isToday =
-        day === currentDate.getDate() &&
-        currentDate.getMonth() === new Date().getMonth() &&
-        currentDate.getFullYear() === new Date().getFullYear();
+        day === today.getDate() &&
+        currentDate.getMonth() === today.getMonth() &&
+        currentDate.getFullYear() === today.getFullYear();
 
       days.push(
         <div
@@ -99,7 +100,7 @@ const styles = {
   title: {
     fontSize: "0.95rem",
     fontWeight: "bold",
-    color: "white",
+    color: "var(--text-color, white)",
     margin: 0,
   },
   navButton: {
@@ -107,7 +108,7 @@ const styles = {
     border: "none",
     fontSize: "1.2rem",
     cursor: "pointer",
-    color: "rgba(255,255,255,0.7)",
+    color: "var(--text-color, rgba(255,255,255,0.7))",
     padding: "4px 8px",
     transition: "color 0.2s",
   },
@@ -121,7 +122,7 @@ const styles = {
     textAlign: "center",
     fontSize: "0.75rem",
     fontWeight: "bold",
-    color: "rgba(255,255,255,0.6)",
+    color: "var(--text-color, rgba(255,255,255,0.6))",
   },
   calendarGrid: {
     display: "grid",
@@ -134,7 +135,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "0.8rem",
-    color: "rgba(255,255,255,0.7)",
+    color: "var(--text-color, rgba(255,255,255,0.7))",
     borderRadius: "4px",
     border: "1px solid rgba(255,255,255,0.1)",
     cursor: "pointer",
@@ -143,7 +144,7 @@ const styles = {
   todayDay: {
     background: "rgba(255,255,255,0.2)",
     border: "1px solid rgba(255,255,255,0.4)",
-    color: "white",
+    color: "var(--text-color, white)",
     fontWeight: "bold",
   },
   emptyDay: {

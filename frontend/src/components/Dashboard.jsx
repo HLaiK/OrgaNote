@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { PlusOutlined, ToolOutlined, DeleteOutlined, CloseOutlined } from "@ant-design/icons";
 import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
 import UnstructuredInput from "./UnstructuredInputPanel";
 import { theme } from "../theme";
+import { apiFetch } from "../api";
 
 const styles = {
   container: {
@@ -13,7 +15,7 @@ const styles = {
     gap: "20px",
     padding: "20px",
     height: "100vh",
-    background: theme.colors.background,
+    background: `var(--bg-color, ${theme.colors.background})`,
     overflowY: "auto",
     overflowX: "hidden"
   },
@@ -53,7 +55,7 @@ const styles = {
   title: {
     fontSize: "1.5rem",
     fontWeight: "bold",
-    color: "white",
+    color: "var(--text-color, white)",
     fontStyle: "italic",
     margin: 0,
     fontFamily: "'Brush Script MT', cursive",
@@ -65,7 +67,7 @@ const styles = {
     border: "none",
     fontSize: "1.5rem",
     cursor: "pointer",
-    color: "rgba(255,255,255,0.7)",
+    color: "var(--text-color, rgba(255,255,255,0.7))",
     padding: "5px",
     transition: "color 0.2s"
   },
@@ -80,7 +82,7 @@ const styles = {
     border: "none",
     fontSize: "1.5rem",
     cursor: "pointer",
-    color: "rgba(255,255,255,0.7)",
+    color: "var(--text-color, rgba(255,255,255,0.7))",
     padding: "5px",
     transition: "color 0.2s"
   },
@@ -119,7 +121,7 @@ const styles = {
   modalTitle: {
     fontSize: "1.8rem",
     fontWeight: "bold",
-    color: "white",
+    color: "var(--text-color, white)",
     marginBottom: "20px",
     fontStyle: "italic",
     textAlign: "center"
@@ -130,7 +132,7 @@ const styles = {
   },
 
   settingLabel: {
-    color: "rgba(255,255,255,0.9)",
+    color: "var(--text-color, rgba(255,255,255,0.9))",
     fontSize: "0.95rem",
     marginBottom: "8px",
     display: "block",
@@ -150,7 +152,7 @@ const styles = {
     border: "none",
     fontSize: "2rem",
     cursor: "pointer",
-    color: "rgba(255,255,255,0.7)",
+    color: "var(--text-color, rgba(255,255,255,0.7))",
     position: "absolute",
     top: "15px",
     right: "15px",
@@ -160,33 +162,279 @@ const styles = {
   }
 };
 
-export default function Dashboard() {
+export default function Dashboard({themeColor}) {
   const [showSettings, setShowSettings] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
-  const [bgColor, setBgColor] = useState(theme.colors.background);
-  const [gradientColor, setGradientColor] = useState("#ffffff");
-  const [useGradient, setUseGradient] = useState(false);
-  const [fontColor, setFontColor] = useState("white");
+  // Initialize bgColor from localStorage first; if not present, use theme default
+  const [bgColor, setBgColor] = useState(() => {
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved.background) {
+          if (!saved.background.includes("linear-gradient")) {
+            return saved.background;
+          } else {
+            // Extract first color from gradient
+            const m = saved.background.match(/linear-gradient\([^,]+,\s*([^,]+),/);
+            if (m) {
+              return m[1].trim().replace(/\s+0%$/, '').replace(/,$/, '');
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    return themeColor || theme.colors.background;
+  });
+  // Initialize useGradient from localStorage if background is a gradient
+  const [useGradient, setUseGradient] = useState(() => {
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      if (raw) {
+        const saved = JSON.parse(raw);
+        return !!saved.background && saved.background.includes("linear-gradient");
+      }
+    } catch (e) {}
+    return false;
+  });
+  // Initialize gradientColor from localStorage if exists
+  const [gradientColor, setGradientColor] = useState(() => {
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved.background && saved.background.includes("linear-gradient")) {
+          const m = saved.background.match(/linear-gradient\([^,]+,\s*([^,]+),\s*([^\)]+)\)/);
+          if (m) {
+            return m[2].trim().replace(/\s+100%$/, '').replace(/,$/, '');
+          }
+        }
+      }
+    } catch (e) {}
+    return "#ffffff";
+  });
+  const [fontColor, setFontColor] = useState(() => {
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      if (!raw) return "#ffffff";
+      const saved = JSON.parse(raw);
+      return saved.text || "#ffffff";
+    } catch (e) {
+      return "#ffffff";
+    }
+  });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Flag to prevent persist effects from running during initialization
+  const isInitialMount = React.useRef(true);
+  // Load notification settings from localStorage on initial render
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    try {
+      const nRaw = localStorage.getItem("organote_notifications");
+      if (nRaw) {
+        const n = JSON.parse(nRaw);
+        return !!n.enabled;
+      }
+    } catch (e) {}
+    return false;
+  });
+  const [notificationLead, setNotificationLead] = useState(() => {
+    try {
+      const nRaw = localStorage.getItem("organote_notifications");
+      if (nRaw) {
+        const n = JSON.parse(nRaw);
+        return n.leadMinutes || 60;
+      }
+    } catch (e) {}
+    return 60;
+  });
+  const notifiedRef = React.useRef(new Set());
 
-  // Apply color changes to the document
+  useEffect(() => {
+    // load modern theme (organote_theme) if present and apply CSS variables
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      console.log('[Dashboard] Mount effect: found organote_theme:', !!raw);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      console.log('[Dashboard] Mount effect: parsed saved theme:', saved);
+      if (saved.background) {
+        console.log('[Dashboard] Mount effect: applying saved background:', saved.background);
+        document.documentElement.style.setProperty("--bg-color", saved.background);
+        // Also apply directly to body
+        document.body.style.background = saved.background;
+        // try to use saved background as initial bgColor; if gradient, extract colors
+        if (saved.background.includes("linear-gradient")) {
+          setUseGradient(true);
+          // try to parse two colors from the gradient string
+          const m = saved.background.match(/linear-gradient\([^,]+,\s*([^,]+),\s*([^\)]+)\)/);
+          if (m) {
+            const c1 = m[1].trim().replace(/\s+100%$/, '').replace(/,$/, '');
+            const c2 = m[2].trim().replace(/\s+100%$/, '').replace(/,$/, '');
+            setBgColor(c1);
+            setGradientColor(c2);
+          } else {
+            setBgColor(saved.background);
+          }
+        } else {
+          setBgColor(saved.background);
+        }
+      }
+      if (saved.button) {
+        document.documentElement.style.setProperty("--btn-color", saved.button);
+        document.documentElement.style.setProperty("--scroll-thumb", saved.button);
+      }
+      if (saved.text) {
+        document.documentElement.style.setProperty("--text-color", saved.text);
+        setFontColor(saved.text);
+      }
+    } catch (e) {
+      console.error('[Dashboard] Mount effect error:', e);
+    } finally {
+      // Mark initialization as complete; now persist effects can save changes
+      isInitialMount.current = false;
+    }
+  }, []);
+  // Apply color changes to the document (keeps backward compatibility)
+  // Skip during initialization since applySavedTheme() already set these
   React.useEffect(() => {
-    const container = document.querySelector('[data-dashboard-container]');
-    if (container) {
-      if (useGradient) {
-        container.style.background = `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)`;
-      } else {
-        container.style.background = bgColor;
+    if (isInitialMount.current) return;
+    const bgStr = useGradient ? `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)` : bgColor;
+    document.documentElement.style.setProperty("--bg-color", bgStr);
+    // Also apply directly to body
+    document.body.style.background = bgStr;
+  }, [bgColor, gradientColor, useGradient]);
+
+  // persist background/button/text into organote_theme when bg/gradient changes
+  // BUT skip during initial mount (isInitialMount.current is true)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      console.log('[Dashboard] Skipping persist during initialization');
+      return;
+    }
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      const current = raw ? JSON.parse(raw) : {};
+      current.background = useGradient ? `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)` : bgColor;
+      // preserve existing button and text values if present
+      localStorage.setItem("organote_theme", JSON.stringify(current));
+    } catch (e) {}
+    // also persist legacy gradient key for older code
+    try {
+      localStorage.setItem("organote_use_gradient", useGradient ? "true" : "false");
+      localStorage.setItem("organote_gradient_color", gradientColor);
+    } catch (e) {}
+  }, [bgColor, useGradient, gradientColor]);
+
+  // persist notification settings when changed
+  useEffect(() => {
+    try {
+      const n = { enabled: notificationsEnabled, leadMinutes: notificationLead };
+      localStorage.setItem("organote_notifications", JSON.stringify(n));
+    } catch (e) {}
+  }, [notificationsEnabled, notificationLead]);
+
+  // Periodic checker for upcoming due tasks; shows browser notifications
+  useEffect(() => {
+    let intervalId;
+    async function checkTasks() {
+      try {
+        if (!notificationsEnabled) return;
+        // request permission if needed
+        if (typeof Notification !== 'undefined' && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+          await Notification.requestPermission();
+        }
+        const tasks = await apiFetch('/tasks');
+        const now = new Date();
+        const leadMs = Math.max(0, notificationLead) * 60 * 1000;
+        
+        tasks.forEach((t) => {
+          if (!t.due_date) return;
+          if (t.status === 'completed') return;
+          
+          const due = new Date(t.due_date);
+          const diff = due.getTime() - now.getTime(); // milliseconds until due
+          
+          // notify if: task is within the lead window AND hasn't been notified yet AND is not too far in the past
+          const shouldNotify = diff <= leadMs && diff >= -60000 && !notifiedRef.current.has(t.id); // allow 1 min grace for tasks just passed
+          
+          if (shouldNotify) {
+            const title = `Task due: ${t.title}`;
+            const timeStr = due.toLocaleString();
+            const body = diff <= 0 ? `Was due at ${timeStr}` : `Due at ${timeStr}`;
+            
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try {
+                new Notification(title, { body, tag: `task-${t.id}` });
+              } catch (err) {
+                console.error('Notification error:', err);
+              }
+            }
+            notifiedRef.current.add(t.id);
+            console.log(`[Notification] ${title} - ${body} (diff: ${diff}ms, lead: ${leadMs}ms)`);
+          }
+        });
+      } catch (e) {
+        console.error('Notification check failed', e);
       }
     }
-  }, [bgColor, gradientColor, useGradient]);
+
+    if (notificationsEnabled) {
+      // initial check, then every minute
+      checkTasks();
+      intervalId = setInterval(checkTasks, 60 * 1000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [notificationsEnabled, notificationLead]);
+
+  // helper function to normalize color values to valid hex for color inputs
+  const normalizeColor = (colorStr) => {
+    if (!colorStr) return '#ffffff';
+    // Remove spaces and extract just the hex
+    const match = colorStr.match(/#[0-9a-fA-F]{6}/);
+    return match ? match[0] : ('#ffffff');
+  };
+
+  // helper to merge and save a background into organote_theme immediately
+  const saveBackgroundToTheme = (backgroundValue, gradientFlag, gradientVal) => {
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      const current = raw ? JSON.parse(raw) : {};
+      const bgStr = gradientFlag ? `linear-gradient(135deg, ${backgroundValue} 0%, ${gradientVal} 100%)` : backgroundValue;
+      current.background = bgStr;
+      console.log('[Theme] Saving background to organote_theme:', bgStr);
+      localStorage.setItem("organote_theme", JSON.stringify(current));
+      console.log('[Theme] Verified in localStorage:', localStorage.getItem("organote_theme"));
+      // immediately apply the CSS variable
+      document.documentElement.style.setProperty("--bg-color", bgStr);
+      // Also apply directly to body
+      document.body.style.background = bgStr;
+      console.log('[Theme] Applied to both documentElement CSS var and body.style.background');
+    } catch (e) {
+      console.error('[Theme] Error saving background:', e);
+    }
+  };
+
+  // persist fontColor changes into organote_theme so other parts pick it up
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    try {
+      const raw = localStorage.getItem("organote_theme");
+      const current = raw ? JSON.parse(raw) : {};
+      current.text = fontColor;
+      localStorage.setItem("organote_theme", JSON.stringify(current));
+      document.documentElement.style.setProperty("--text-color", fontColor);
+    } catch (e) {}
+  }, [fontColor]);
 
   const handleTasksCreated = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
   return (
-    <div style={{ ...styles.container, background: bgColor }} data-dashboard-container>
+    <div style={styles.container} data-dashboard-container>
       {/* LEFT SIDEBAR */}
       <div style={styles.sidebar}>
         {/* Calendar */}
@@ -210,14 +458,14 @@ export default function Dashboard() {
               onClick={() => setShowAddTask(true)}
               title="Add task"
             >
-              ➕
+              <PlusOutlined />
             </button>
             <button
               style={styles.headerButton}
               onClick={() => setShowSettings(true)}
               title="Settings"
             >
-              ⚙️
+              <ToolOutlined />
             </button>
           </div>
         </div>
@@ -232,7 +480,7 @@ export default function Dashboard() {
               style={styles.closeButton}
               onClick={() => setShowAddTask(false)}
             >
-              ✕
+              <CloseOutlined />
             </button>
 
             <h3 style={styles.modalTitle}>Add Tasks</h3>
@@ -248,12 +496,12 @@ export default function Dashboard() {
       {/* Settings Modal */}
       {showSettings && (
         <div style={styles.modalOverlay} onClick={() => setShowSettings(false)}>
-          <div style={{ ...styles.modal, background: useGradient ? `linear-gradient(135deg, ${bgColor}dd 0%, ${gradientColor}dd 100%)` : `rgba(167, 196, 160, 0.95)` }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ ...styles.modal, background: useGradient ? `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)` : bgColor }} onClick={(e) => e.stopPropagation()}>
             <button
               style={styles.closeButton}
               onClick={() => setShowSettings(false)}
             >
-              ✕
+              <CloseOutlined />
             </button>
 
             <h3 style={styles.modalTitle}>Settings</h3>
@@ -266,8 +514,12 @@ export default function Dashboard() {
               <label style={styles.settingLabel}>Background color</label>
               <input
                 type="color"
-                value={bgColor}
-                onChange={(e) => setBgColor(e.target.value)}
+                value={normalizeColor(bgColor)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setBgColor(v);
+                  saveBackgroundToTheme(v, useGradient, gradientColor);
+                }}
                 style={styles.colorInput}
               />
             </div>
@@ -287,7 +539,11 @@ export default function Dashboard() {
                 <input
                   type="checkbox"
                   checked={useGradient}
-                  onChange={(e) => setUseGradient(e.target.checked)}
+                    onChange={(e) => {
+                      const flag = e.target.checked;
+                      setUseGradient(flag);
+                      saveBackgroundToTheme(bgColor, flag, gradientColor);
+                    }}
                   style={{ marginRight: "8px", cursor: "pointer" }}
                 />
                 Use Gradient
@@ -299,8 +555,11 @@ export default function Dashboard() {
                 <label style={styles.settingLabel}>Gradient color</label>
                 <input
                   type="color"
-                  value={gradientColor}
-                  onChange={(e) => setGradientColor(e.target.value)}
+                  value={normalizeColor(gradientColor)}
+                  onChange={(e) => {
+                    setGradientColor(e.target.value);
+                      saveBackgroundToTheme(bgColor, true, e.target.value);
+                  }}
                   style={styles.colorInput}
                 />
               </div>
@@ -308,6 +567,34 @@ export default function Dashboard() {
 
             <div style={styles.settingItem}>
               <label style={styles.settingLabel}>Progress Plant</label>
+            </div>
+
+            <div style={styles.settingItem}>
+              <label style={styles.settingLabel}>Notifications</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                <label style={styles.settingLabel}>
+                  <input
+                    type="checkbox"
+                    checked={notificationsEnabled}
+                    onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                    style={{ marginRight: "8px", cursor: "pointer" }}
+                  />
+                  Enable Notifications
+                </label>
+
+                <label style={styles.settingLabel}>Notify me before due:</label>
+                <select
+                  value={notificationLead}
+                  onChange={(e) => setNotificationLead(Number(e.target.value))}
+                  style={{ padding: 8, borderRadius: 6 }}
+                >
+                  <option value={0}>At due time</option>
+                  <option value={5}>5 minutes before</option>
+                  <option value={15}>15 minutes before</option>
+                  <option value={60}>1 hour before</option>
+                  <option value={1440}>1 day before</option>
+                </select>
+              </div>
             </div>
 
             <div style={styles.settingItem}>

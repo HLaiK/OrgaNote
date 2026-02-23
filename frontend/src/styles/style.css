@@ -6,7 +6,7 @@
 
 body {
     min-height: 100vh;
-    background: linear-gradient(135deg, #9dddb0 0%, #327641 100%);
+    background: var(--bg-color, linear-gradient(135deg, #9dddb0 0%, #327641 100%));
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
@@ -21,7 +21,7 @@ body {
 
 .app-header {
     text-align: center;
-    color: white;
+    color: var(--text-color);
     padding: 20px;
     background: rgba(27, 67, 36, 0.9);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -73,7 +73,7 @@ body {
 
 .input-card h2 {
     font-size: 2rem;
-    color: #333;
+    color: var(--text-color);
     margin-bottom: 30px;
     font-weight: 600;
 }
@@ -147,7 +147,7 @@ body {
 }
 
 .hint-text {
-    color: #999;
+    color: var(--text-color);
     font-size: 0.95rem;
     margin: 0;
 }
@@ -185,7 +185,7 @@ body {
 .input-section h2 {
     font-size: 1.3rem;
     margin-bottom: 15px;
-    color: #333;
+    color: var(--text-color);
 }
 
 .task-input {
@@ -266,7 +266,7 @@ body {
 
 .calendar-header h3 {
     font-size: 1rem;
-    color: #333;
+    color: var(--text-color);
     margin: 0;
 }
 
@@ -296,7 +296,7 @@ body {
     text-align: center;
     font-weight: 600;
     font-size: 0.8rem;
-    color: #666;
+    color: var(--text-color);
 }
 
 .calendar-days {
@@ -313,7 +313,7 @@ body {
     border-radius: 6px;
     font-size: 0.9rem;
     background: #f8f9fa;
-    color: #333;
+    color: var(--text-color);
     cursor: pointer;
     transition: all 0.3s;
 }
@@ -342,7 +342,7 @@ body {
 .progress-box h3 {
     font-size: 1.1rem;
     margin-bottom: 12px;
-    color: #333;
+    color: var(--text-color);
 }
 
 .progress-content {
@@ -357,7 +357,7 @@ body {
 
 .progress-placeholder {
     text-align: center;
-    color: #999;
+    color: var(--text-color);
 }
 
 .progress-placeholder p {
@@ -392,7 +392,7 @@ body {
     cursor: pointer;
     font-size: 1rem;
     font-weight: 600;
-    color: #666;
+    color: var(--text-color);
     transition: all 0.3s;
 }
 
@@ -436,7 +436,7 @@ body {
 .kanban-column-title {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #333;
+    color: var(--text-color);
     margin-bottom: 15px;
     padding-bottom: 10px;
     border-bottom: 2px solid #327641;
@@ -452,7 +452,7 @@ body {
 
 .no-tasks-column {
     text-align: center;
-    color: #999;
+    color: var(--text-color);
     padding: 20px;
     font-style: italic;
     font-size: 0.95rem;
@@ -500,7 +500,7 @@ body {
 .task-title {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #333;
+    color: var(--text-color);
     margin: 0;
     word-break: break-word;
 }
@@ -541,7 +541,7 @@ body {
 }
 
 .task-description {
-    color: #666;
+    color: var(--text-color);
     font-size: 0.95rem;
     line-height: 1.4;
     margin: 10px 0;
@@ -576,7 +576,7 @@ body {
 /* No Tasks */
 .no-tasks {
     text-align: center;
-    color: #999;
+    color: var(--text-color);
     padding: 40px 20px;
     font-style: italic;
 }
@@ -648,14 +648,14 @@ body {
 
 .close-btn {
     font-size: 2rem;
-    color: #999;
+    color: var(--text-color);
     cursor: pointer;
     transition: color 0.3s;
     line-height: 1;
 }
 
 .close-btn:hover {
-    color: #333;
+    color: var(--text-color);
 }
 
 .modal form {
@@ -671,7 +671,7 @@ body {
 
 .btn-secondary {
     background: #e0e0e0;
-    color: #333;
+    color: var(--text-color);
     border: none;
     padding: 12px 30px;
     border-radius: 8px;

@@ -67,12 +67,12 @@ router.put("/:id", async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE tasks
-       SET title = $1,
-           description = $2,
-           category = $3,
-           priority = $4,
-           due_date = $5,
-           status = $6,
+       SET title = COALESCE($1, title),
+           description = COALESCE($2, description),
+           category = COALESCE($3, category),
+           priority = COALESCE($4, priority),
+           due_date = COALESCE($5, due_date),
+           status = COALESCE($6, status),
            updated_at = NOW()
        WHERE id = $7 AND user_id = $8
        RETURNING *`,

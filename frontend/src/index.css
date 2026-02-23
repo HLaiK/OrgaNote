@@ -7,9 +7,9 @@
 
 /* App background matches your sketch */
 body {
-  background-color: #A7C4A0; /* soft green */
+  background-color: var(--bg-color, #A7C4A0); /* soft green */
   font-family: 'Poppins', sans-serif;
-  color: #2A2A2A;
+  color: var(--text-color, #2A2A2A);
   margin: 0;
   padding: 0;
 }
@@ -43,7 +43,7 @@ input, textarea {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.2);
+  background: var(--scroll-thumb, rgba(0,0,0,0.2));
   border-radius: 4px;
 }
 
