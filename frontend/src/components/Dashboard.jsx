@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { PlusOutlined, ToolOutlined, DeleteOutlined, CloseOutlined } from "@ant-design/icons";
+import { PlusOutlined, ToolOutlined, CloseOutlined, DownOutlined } from "@ant-design/icons";
+import { Dropdown } from "antd";
 import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
@@ -224,6 +225,8 @@ export default function Dashboard({themeColor}) {
     }
   });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [customizeThemeOpen, setCustomizeThemeOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   // Flag to prevent persist effects from running during initialization
   const isInitialMount = React.useRef(true);
   // Load notification settings from localStorage on initial render
@@ -497,112 +500,158 @@ export default function Dashboard({themeColor}) {
       {showSettings && (
         <div style={styles.modalOverlay} onClick={() => setShowSettings(false)}>
           <div style={{ ...styles.modal, background: useGradient ? `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)` : bgColor }} onClick={(e) => e.stopPropagation()}>
-            <button
-              style={styles.closeButton}
-              onClick={() => setShowSettings(false)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={styles.modalTitle}>Settings</h3>
+              <button
+                style={styles.closeButton}
+                onClick={() => setShowSettings(false)}
+              >
+                <CloseOutlined />
+              </button>
+            </div>
+
+            {/* Customize Theme Dropdown */}
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'bg-color',
+                    label: (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <label style={styles.settingLabel}>Background color</label>
+                        <input
+                          type="color"
+                          value={normalizeColor(bgColor)}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setBgColor(v);
+                            saveBackgroundToTheme(v, useGradient, gradientColor);
+                          }}
+                          style={styles.colorInput}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'font-color',
+                    label: (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <label style={styles.settingLabel}>Font color</label>
+                        <input
+                          type="color"
+                          value={fontColor}
+                          onChange={(e) => {
+                            setFontColor(e.target.value);
+                          }}
+                          style={styles.colorInput}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'gradient',
+                    label: (
+                      <label style={styles.settingLabel} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={useGradient}
+                          onChange={(e) => {
+                            const flag = e.target.checked;
+                            setUseGradient(flag);
+                            saveBackgroundToTheme(bgColor, flag, gradientColor);
+                          }}
+                          style={{ marginRight: "8px", cursor: "pointer" }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        />
+                        Use Gradient
+                      </label>
+                    ),
+                  },
+                  ...(useGradient ? [{
+                    key: 'gradient-color',
+                    label: (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <label style={styles.settingLabel}>Gradient color</label>
+                        <input
+                          type="color"
+                          value={normalizeColor(gradientColor)}
+                          onChange={(e) => {
+                            setGradientColor(e.target.value);
+                            saveBackgroundToTheme(bgColor, true, e.target.value);
+                          }}
+                          style={styles.colorInput}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    ),
+                  }] : []),
+                ]
+              }}
+              trigger={['click']}
+              open={customizeThemeOpen}
+              onOpenChange={setCustomizeThemeOpen}
             >
-              <CloseOutlined />
-            </button>
+              <a onClick={e => e.preventDefault()} style={{ fontSize: '1rem', color: 'var(--text-color, white)' }}>
+                Customize Theme <DownOutlined />
+              </a>
+            </Dropdown>
 
-            <h3 style={styles.modalTitle}>Settings</h3>
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>Customize Theme</label>
-            </div>
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>Background color</label>
-              <input
-                type="color"
-                value={normalizeColor(bgColor)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setBgColor(v);
-                  saveBackgroundToTheme(v, useGradient, gradientColor);
+            <div style={{ marginTop: '16px' }}>
+              {/* Notifications Dropdown */}
+              <Dropdown
+                menu={{
+                  items: [
+                    {
+                      key: 'notifications-enable',
+                      label: (
+                        <label style={styles.settingLabel} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={notificationsEnabled}
+                            onChange={(e) => {
+                              setNotificationsEnabled(e.target.checked);
+                            }}
+                            style={{ marginRight: "8px", cursor: "pointer" }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          />
+                          Enable Notifications
+                        </label>
+                      ),
+                    },
+                    {
+                      key: 'lead-time',
+                      label: (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <label style={styles.settingLabel}>Lead time (minutes)</label>
+                          <select
+                            value={notificationLead}
+                            onChange={(e) => {
+                              setNotificationLead(Number(e.target.value));
+                            }}
+                            style={{ marginLeft: '8px', padding: '4px', borderRadius: '4px' }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <option value={15}>15 min</option>
+                            <option value={30}>30 min</option>
+                            <option value={60}>1 hour</option>
+                            <option value={120}>2 hours</option>
+                            <option value={1440}>1 day</option>
+                          </select>
+                        </div>
+                      ),
+                    },
+                  ]
                 }}
-                style={styles.colorInput}
-              />
-            </div>
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>Font color</label>
-              <input
-                type="color"
-                value={fontColor}
-                onChange={(e) => setFontColor(e.target.value)}
-                style={styles.colorInput}
-              />
-            </div>
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>
-                <input
-                  type="checkbox"
-                  checked={useGradient}
-                    onChange={(e) => {
-                      const flag = e.target.checked;
-                      setUseGradient(flag);
-                      saveBackgroundToTheme(bgColor, flag, gradientColor);
-                    }}
-                  style={{ marginRight: "8px", cursor: "pointer" }}
-                />
-                Use Gradient
-              </label>
-            </div>
-
-            {useGradient && (
-              <div style={styles.settingItem}>
-                <label style={styles.settingLabel}>Gradient color</label>
-                <input
-                  type="color"
-                  value={normalizeColor(gradientColor)}
-                  onChange={(e) => {
-                    setGradientColor(e.target.value);
-                      saveBackgroundToTheme(bgColor, true, e.target.value);
-                  }}
-                  style={styles.colorInput}
-                />
-              </div>
-            )}
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>Progress Plant</label>
-            </div>
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>Notifications</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                <label style={styles.settingLabel}>
-                  <input
-                    type="checkbox"
-                    checked={notificationsEnabled}
-                    onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                    style={{ marginRight: "8px", cursor: "pointer" }}
-                  />
-                  Enable Notifications
-                </label>
-
-                <label style={styles.settingLabel}>Notify me before due:</label>
-                <select
-                  value={notificationLead}
-                  onChange={(e) => setNotificationLead(Number(e.target.value))}
-                  style={{ padding: 8, borderRadius: 6 }}
-                >
-                  <option value={0}>At due time</option>
-                  <option value={5}>5 minutes before</option>
-                  <option value={15}>15 minutes before</option>
-                  <option value={60}>1 hour before</option>
-                  <option value={1440}>1 day before</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>Calendar</label>
-            </div>
-
-            <div style={styles.settingItem}>
-              <label style={styles.settingLabel}>Changing Plant</label>
+                trigger={['click']}
+                open={notificationsOpen}
+                onOpenChange={setNotificationsOpen}
+              >
+                <a onClick={e => e.preventDefault()} style={{ fontSize: '1rem', color: 'var(--text-color, white)' }}>
+                  Notifications <DownOutlined />
+                </a>
+              </Dropdown>
             </div>
           </div>
         </div>

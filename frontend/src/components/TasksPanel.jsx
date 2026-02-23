@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { EditOutlined, CheckOutlined, DeleteOutlined } from "@ant-design/icons";
+import { EditOutlined, CheckOutlined, DeleteOutlined, CloseOutlined } from "@ant-design/icons";
 import { apiFetch } from "../api";
 
 export default function TasksPanel({ refreshTrigger }) {
@@ -168,13 +168,22 @@ export default function TasksPanel({ refreshTrigger }) {
       {editingTask && (
         <div style={modalStyles.overlay} onClick={cancelEdit}>
           <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={modalStyles.title}>Edit Task</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={modalStyles.title}>Edit Task</h3>
+              <button 
+                onClick={cancelEdit}
+                style={{ background: 'none', border: 'none', color: 'var(--text-color, white)', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                <CloseOutlined />
+              </button>
+            </div>
 
             <label style={modalStyles.label}>Title</label>
             <input
               style={modalStyles.input}
               value={editingTask.title || ""}
               onChange={(e) => handleEditChange("title", e.target.value)}
+              placeholder="Task title"
             />
 
             <label style={modalStyles.label}>Due date & time</label>
@@ -185,7 +194,7 @@ export default function TasksPanel({ refreshTrigger }) {
               onChange={(e) => handleEditChange("due_date", e.target.value ? e.target.value : null)}
             />
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button style={modalStyles.saveBtn} onClick={submitEdit}>Save</button>
               <button style={modalStyles.cancelBtn} onClick={cancelEdit}>Cancel</button>
             </div>
