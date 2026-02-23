@@ -3,7 +3,7 @@ const { Pool } = require("pg");
 const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
-    "postgresql://organote:password@localhost:5433/organote",
+    "postgresql://organote:password@localhost:5432/organote",
 });
 
 pool.query("SELECT NOW()", (err, res) => {

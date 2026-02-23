@@ -9,5 +9,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
-  ALTER TABLE tasks ADD COLUMN user_id TEXT;
 );
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id TEXT;
+

@@ -84,14 +84,23 @@ router.post("/organize", async (req, res) => {
 
     const parsedTasks = lines.map(parseLine);
 
+    // Map string priorities → integers
+    const priorityMap = {
+      low: 1,
+      medium: 2,
+      high: 3,
+    };
+
     const created = [];
 
     for (const t of parsedTasks) {
+      const priorityValue = priorityMap[t.priority] || 2; // default medium
+
       const result = await pool.query(
         `INSERT INTO tasks (title, description, category, priority, due_date, user_id)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [t.title, null, null, t.priority, t.due_date, userId],
+        [t.title, null, null, priorityValue, t.due_date, userId],
       );
 
       created.push(result.rows[0]);
@@ -100,7 +109,7 @@ router.post("/organize", async (req, res) => {
     res.json({ created });
   } catch (err) {
     console.error("TEMP NLP ERROR:", err);
-    res.status(400).json({ error: "Invalid JSON received" });
+    res.status(400).json({ error: "Failed to process NLP input" });
   }
 });
 

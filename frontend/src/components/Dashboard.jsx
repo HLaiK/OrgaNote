@@ -100,7 +100,7 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: "rgba(0, 0, 0, 0.5)",
+    background: "rgba(0, 0, 0, 0.27)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -164,7 +164,7 @@ export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [bgColor, setBgColor] = useState(theme.colors.background);
-  const [gradientColor, setGradientColor] = useState("#B8D4B0");
+  const [gradientColor, setGradientColor] = useState("#ffffff");
   const [useGradient, setUseGradient] = useState(false);
   const [fontColor, setFontColor] = useState("white");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
