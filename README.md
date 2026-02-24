@@ -1,16 +1,30 @@
-# React + Vite
+# OrgaNote
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+OrgaNote is a minimalist productivity tool that auto-formats messy to-do lists into clean, structured, and visually organized tasks. Unlike Notion or Todoist, it prioritizes simplicity—just write, click, and get clarity. Designed to reduce cognitive load, OrgaNote blends the ease of jotting things down with the power of automation.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Smart Task Input** - Write tasks in natural language, and the NLP engine automatically parses and organizes them
+- **Multiple Views** - Switch between List and Kanban board views to organize tasks your way
+- **Task Organization** - Categorize tasks (Work, School, Personal, Other) and set priorities (High, Medium, Low)
+- **Calendar Integration** - Visualize tasks on a calendar with due dates
+- **Progress Tracking** - Monitor your completion progress with visual indicators
+- **Customizable Theme** - Personalize colors and fonts to match your style
+- **Drag & Drop** - Easily move tasks between statuses in Kanban view
+- **Search & Filter** - Quickly find tasks with the search functionality
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Frontend
+- **React** 
+- **Vite** - Fast build tool
+- **Ant Design** - UI component library
+- **CSS** - Custom styling with theme variables
 
-## Expanding the ESLint configuration
+### Backend
+- **Node.js/Express** - REST API server
+- **PostgreSQL** - Relational database
+- **Chrono-node** - Natural language date parsing
+- **Docker** - Containerization
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
