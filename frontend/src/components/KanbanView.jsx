@@ -198,9 +198,9 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
     }
   };
 
-  const createGroup = async () => {
+  const createGroupFromPrompt = async () => {
     const name = window.prompt("Group name (e.g., School, Work, Class 1)");
-    if (!name || !name.trim()) return;
+    if (!name || !name.trim()) return null;
 
     try {
       const created = await apiFetch("/task-groups", {
@@ -208,9 +208,22 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
         body: { name: name.trim(), color: "#4F46E5" },
       });
       setGroups((prev) => [...prev, created]);
+      return created;
     } catch (err) {
       console.error("Error creating group:", err);
       alert("Failed to create group");
+      return null;
+    }
+  };
+
+  const createGroup = async () => {
+    await createGroupFromPrompt();
+  };
+
+  const createGroupForEditingTask = async () => {
+    const created = await createGroupFromPrompt();
+    if (created && editingTask) {
+      handleEditChange("group_id", created.id);
     }
   };
 
@@ -733,6 +746,26 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
                 <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "var(--text-color, rgba(255,255,255,0.9))" }}>
                   Group
                 </label>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={createGroupForEditingTask}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "rgba(255,255,255,0.2)",
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      borderRadius: "8px",
+                      padding: "6px 10px",
+                      color: "var(--text-color, white)",
+                      cursor: "pointer",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    <PlusOutlined /> Create new group
+                  </button>
+                </div>
                 <select
                   value={editingTask.group_id || ""}
                   onChange={(e) =>

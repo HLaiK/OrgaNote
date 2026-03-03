@@ -121,9 +121,9 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
     }
   };
 
-  const createGroup = async () => {
+  const createGroupFromPrompt = async () => {
     const name = window.prompt("Group name (e.g., School, Work, Class 1)");
-    if (!name || !name.trim()) return;
+    if (!name || !name.trim()) return null;
 
     try {
       const created = await apiFetch("/task-groups", {
@@ -131,9 +131,22 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
         body: { name: name.trim(), color: "#4F46E5" },
       });
       setGroups((prev) => [...prev, created]);
+      return created;
     } catch (err) {
       console.error("Error creating group:", err);
       alert("Failed to create group");
+      return null;
+    }
+  };
+
+  const createGroup = async () => {
+    await createGroupFromPrompt();
+  };
+
+  const createGroupForEditingTask = async () => {
+    const created = await createGroupFromPrompt();
+    if (created && editingTask) {
+      handleEditChange("group_id", created.id);
     }
   };
 
@@ -402,6 +415,15 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
 
               <div>
                 <label style={modalStyles.label}>Group</label>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={createGroupForEditingTask}
+                    style={modalStyles.groupCreateButton}
+                  >
+                    <PlusOutlined /> Create new group
+                  </button>
+                </div>
                 <select
                   style={modalStyles.input}
                   value={editingTask.group_id || ""}
@@ -713,6 +735,18 @@ const modalStyles = {
     marginBottom: "16px",
     boxSizing: "border-box",
     fontSize: "0.95rem",
+  },
+  groupCreateButton: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "rgba(255,255,255,0.2)",
+    border: "2px solid rgba(255,255,255,0.3)",
+    borderRadius: "8px",
+    padding: "6px 10px",
+    color: "var(--text-color, white)",
+    cursor: "pointer",
+    fontSize: "0.85rem",
   },
   saveBtn: {
     flex: 1,
