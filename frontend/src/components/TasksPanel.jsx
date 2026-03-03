@@ -15,6 +15,12 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
   const [groups, setGroups] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [editingTask, setEditingTask] = useState(null);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupColor, setNewGroupColor] = useState("#4F46E5");
+  const [selectNewGroupInEditingTask, setSelectNewGroupInEditingTask] = useState(false);
+  const [renamingGroup, setRenamingGroup] = useState(null);
+  const [renameGroupName, setRenameGroupName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -121,45 +127,72 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
     }
   };
 
-  const createGroupFromPrompt = async () => {
-    const name = window.prompt("Group name (e.g., School, Work, Class 1)");
-    if (!name || !name.trim()) return null;
+  const openCreateGroupModal = (selectInEditingTask = false) => {
+    setSelectNewGroupInEditingTask(selectInEditingTask);
+    setNewGroupName("");
+    setNewGroupColor("#4F46E5");
+    setCreatingGroup(true);
+  };
+
+  const cancelCreateGroup = () => {
+    setCreatingGroup(false);
+    setNewGroupName("");
+    setNewGroupColor("#4F46E5");
+    setSelectNewGroupInEditingTask(false);
+  };
+
+  const submitCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
 
     try {
       const created = await apiFetch("/task-groups", {
         method: "POST",
-        body: { name: name.trim(), color: "#4F46E5" },
+        body: { name: newGroupName.trim(), color: newGroupColor || "#4F46E5" },
       });
       setGroups((prev) => [...prev, created]);
-      return created;
+      if (selectNewGroupInEditingTask && editingTask) {
+        handleEditChange("group_id", created.id);
+      }
+      cancelCreateGroup();
     } catch (err) {
       console.error("Error creating group:", err);
       alert("Failed to create group");
-      return null;
     }
   };
 
   const createGroup = async () => {
-    await createGroupFromPrompt();
+    openCreateGroupModal(false);
   };
 
   const createGroupForEditingTask = async () => {
-    const created = await createGroupFromPrompt();
-    if (created && editingTask) {
-      handleEditChange("group_id", created.id);
-    }
+    openCreateGroupModal(true);
   };
 
-  const renameGroup = async (group) => {
-    const name = window.prompt("Rename group", group.name || "");
-    if (!name || !name.trim() || name.trim() === group.name) return;
+  const openRenameGroupModal = (group) => {
+    setRenamingGroup(group);
+    setRenameGroupName(group?.name || "");
+  };
+
+  const cancelRenameGroup = () => {
+    setRenamingGroup(null);
+    setRenameGroupName("");
+  };
+
+  const submitRenameGroup = async () => {
+    if (!renamingGroup) return;
+    const trimmedName = renameGroupName.trim();
+    if (!trimmedName || trimmedName === renamingGroup.name) {
+      cancelRenameGroup();
+      return;
+    }
 
     try {
-      const updated = await apiFetch(`/task-groups/${group.id}`, {
+      const updated = await apiFetch(`/task-groups/${renamingGroup.id}`, {
         method: "PUT",
-        body: { name: name.trim() },
+        body: { name: trimmedName },
       });
       setGroups((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      cancelRenameGroup();
     } catch (err) {
       console.error("Error renaming group:", err);
       alert("Failed to rename group");
@@ -290,7 +323,7 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
                       />
                       <button
                         style={styles.groupActionBtn}
-                        onClick={() => renameGroup(section)}
+                        onClick={() => openRenameGroupModal(section)}
                         title="Rename group"
                       >
                         <EditOutlined />
@@ -476,6 +509,185 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
               <button
                 style={modalStyles.cancelBtn}
                 onClick={cancelEdit}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "rgba(255,255,255,0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "rgba(255,255,255,0.2)";
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {creatingGroup && (
+        <div style={modalStyles.overlay} onClick={cancelCreateGroup}>
+          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 24,
+              }}
+            >
+              <h3 style={modalStyles.title}>Create Group</h3>
+              <button
+                onClick={cancelCreateGroup}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-color, white)",
+                  fontSize: "1.8rem",
+                  cursor: "pointer",
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CloseOutlined />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+                marginBottom: "24px",
+              }}
+            >
+              <div>
+                <label style={modalStyles.label}>Group Name</label>
+                <input
+                  style={{ ...modalStyles.input, marginBottom: 0 }}
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Group name (e.g., School, Work, Class 1)"
+                />
+              </div>
+
+              <div>
+                <label style={modalStyles.label}>Group Color</label>
+                <input
+                  type="color"
+                  value={newGroupColor}
+                  onChange={(e) => setNewGroupColor(e.target.value)}
+                  style={{
+                    width: "48px",
+                    height: "38px",
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                    cursor: "pointer",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                style={modalStyles.saveBtn}
+                onClick={submitCreateGroup}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "var(--btn-color, #A7C4A0)";
+                  e.target.style.borderColor = "var(--btn-color, #A7C4A0)";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "rgba(255,255,255,0.2)";
+                  e.target.style.borderColor = "rgba(255,255,255,0.3)";
+                }}
+              >
+                Create
+              </button>
+              <button
+                style={modalStyles.cancelBtn}
+                onClick={cancelCreateGroup}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "rgba(255,255,255,0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "rgba(255,255,255,0.2)";
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renamingGroup && (
+        <div style={modalStyles.overlay} onClick={cancelRenameGroup}>
+          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 24,
+              }}
+            >
+              <h3 style={modalStyles.title}>Rename Group</h3>
+              <button
+                onClick={cancelRenameGroup}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-color, white)",
+                  fontSize: "1.8rem",
+                  cursor: "pointer",
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CloseOutlined />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+                marginBottom: "24px",
+              }}
+            >
+              <div>
+                <label style={modalStyles.label}>Group Name</label>
+                <input
+                  style={{ ...modalStyles.input, marginBottom: 0 }}
+                  value={renameGroupName}
+                  onChange={(e) => setRenameGroupName(e.target.value)}
+                  placeholder="Rename group"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                style={modalStyles.saveBtn}
+                onClick={submitRenameGroup}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "var(--btn-color, #A7C4A0)";
+                  e.target.style.borderColor = "var(--btn-color, #A7C4A0)";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "rgba(255,255,255,0.2)";
+                  e.target.style.borderColor = "rgba(255,255,255,0.3)";
+                }}
+              >
+                Save
+              </button>
+              <button
+                style={modalStyles.cancelBtn}
+                onClick={cancelRenameGroup}
                 onMouseEnter={(e) => {
                   e.target.style.background = "rgba(255,255,255,0.3)";
                 }}
