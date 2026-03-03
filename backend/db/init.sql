@@ -12,4 +12,25 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS group_id INTEGER;
+
+CREATE TABLE IF NOT EXISTS task_groups (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#4F46E5',
+  user_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+  ALTER TABLE tasks
+    ADD CONSTRAINT tasks_group_id_fkey
+    FOREIGN KEY (group_id)
+    REFERENCES task_groups(id)
+    ON DELETE SET NULL;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 

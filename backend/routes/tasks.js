@@ -42,14 +42,14 @@ router.get("/:id", async (req, res) => {
 // CREATE a new task for a specific user
 router.post("/", async (req, res) => {
   const userId = req.headers["x-user-id"];
-  const { title, description, category, priority, due_date } = req.body;
+  const { title, description, category, priority, due_date, group_id } = req.body;
 
   try {
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, category, priority, due_date, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO tasks (title, description, category, priority, due_date, user_id, group_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [title, description, category, priority, due_date, userId],
+      [title, description, category, priority, due_date, userId, group_id ?? null],
     );
 
     res.status(201).json(result.rows[0]);
@@ -62,7 +62,8 @@ router.post("/", async (req, res) => {
 // UPDATE a task (only if it belongs to the user)
 router.put("/:id", async (req, res) => {
   const userId = req.headers["x-user-id"];
-  const { title, description, category, priority, due_date, status } = req.body;
+  const { title, description, category, priority, due_date, status, group_id } = req.body;
+  const hasGroupId = Object.prototype.hasOwnProperty.call(req.body, "group_id");
 
   try {
     const result = await pool.query(
@@ -73,8 +74,9 @@ router.put("/:id", async (req, res) => {
            priority = COALESCE($4, priority),
            due_date = COALESCE($5, due_date),
            status = COALESCE($6, status),
+           group_id = CASE WHEN $7 THEN $8 ELSE group_id END,
            updated_at = NOW()
-       WHERE id = $7 AND user_id = $8
+       WHERE id = $9 AND user_id = $10
        RETURNING *`,
       [
         title,
@@ -83,6 +85,8 @@ router.put("/:id", async (req, res) => {
         priority,
         due_date,
         status,
+        hasGroupId,
+        group_id ?? null,
         req.params.id,
         userId,
       ],
