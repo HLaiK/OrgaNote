@@ -42,14 +42,23 @@ router.get("/:id", async (req, res) => {
 // CREATE a new task for a specific user
 router.post("/", async (req, res) => {
   const userId = req.headers["x-user-id"];
-  const { title, description, category, priority, due_date, group_id } = req.body;
+  const { title, description, category, priority, due_date, group_id } =
+    req.body;
 
   try {
     const result = await pool.query(
       `INSERT INTO tasks (title, description, category, priority, due_date, user_id, group_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [title, description, category, priority, due_date, userId, group_id ?? null],
+      [
+        title,
+        description,
+        category,
+        priority,
+        due_date,
+        userId,
+        group_id ?? null,
+      ],
     );
 
     res.status(201).json(result.rows[0]);
@@ -62,7 +71,8 @@ router.post("/", async (req, res) => {
 // UPDATE a task (only if it belongs to the user)
 router.put("/:id", async (req, res) => {
   const userId = req.headers["x-user-id"];
-  const { title, description, category, priority, due_date, status, group_id } = req.body;
+  const { title, description, category, priority, due_date, status, group_id } =
+    req.body;
   const hasGroupId = Object.prototype.hasOwnProperty.call(req.body, "group_id");
 
   try {
@@ -121,6 +131,19 @@ router.delete("/:id", async (req, res) => {
   } catch (err) {
     console.error("Error deleting task:", err);
     res.status(500).json({ error: "Failed to delete task" });
+  }
+});
+
+// DELETE all tasks for a specific user
+router.delete("/", async (req, res) => {
+  const userId = req.headers["x-user-id"];
+
+  try {
+    await pool.query("DELETE FROM tasks WHERE user_id = $1", [userId]);
+    res.json({ message: "All tasks deleted" });
+  } catch (err) {
+    console.error("Error deleting all tasks:", err);
+    res.status(500).json({ error: "Failed to delete all tasks" });
   }
 });
 

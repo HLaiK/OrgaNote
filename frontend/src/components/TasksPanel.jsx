@@ -127,6 +127,21 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
     }
   };
 
+  const clearAllTasks = async () => {
+    const confirmed = window.confirm(
+      "Delete ALL tasks? This will permanently remove every task in your database for this account.",
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiFetch("/tasks", { method: "DELETE" });
+      setTasks([]);
+    } catch (err) {
+      console.error("Error clearing all tasks:", err);
+      alert("Failed to clear all tasks");
+    }
+  };
+
   const openCreateGroupModal = (selectInEditingTask = false) => {
     setSelectNewGroupInEditingTask(selectInEditingTask);
     setNewGroupName("");
@@ -281,9 +296,14 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
     <>
       <div style={styles.groupToolbar}>
         <span style={styles.groupToolbarLabel}>Task Groups</span>
-        <button style={styles.groupAddButton} onClick={createGroup}>
-          <PlusOutlined /> New Group
-        </button>
+        <div style={styles.groupToolbarActions}>
+          <button style={styles.groupAddButton} onClick={createGroup}>
+            <PlusOutlined /> New Group
+          </button>
+          <button style={styles.groupAddButton} onClick={clearAllTasks} title="Delete all tasks">
+            <DeleteOutlined /> Clear All Tasks
+          </button>
+        </div>
       </div>
 
       <div style={styles.groupListContainer}>
@@ -731,6 +751,11 @@ const styles = {
     color: "var(--text-color, #2A2A2A)",
     fontWeight: "600",
     fontSize: "0.9rem",
+  },
+  groupToolbarActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
   groupAddButton: {
     display: "flex",

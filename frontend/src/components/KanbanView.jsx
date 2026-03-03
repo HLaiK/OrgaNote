@@ -63,6 +63,21 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
     }
   }
 
+  async function clearAllTasks() {
+    const confirmed = window.confirm(
+      "Delete ALL tasks? This will permanently remove every task in your database for this account.",
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiFetch("/tasks", { method: "DELETE" });
+      setTasks([]);
+    } catch (err) {
+      console.error("Clear all tasks error:", err);
+      alert("Failed to clear all tasks");
+    }
+  }
+
   async function updateTaskStatus(taskId, newStatus) {
     try {
       await apiFetch(`/tasks/${taskId}`, {
@@ -351,22 +366,41 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
         <span style={{ color: "var(--text-color, #2A2A2A)", fontWeight: "600", fontSize: "0.9rem" }}>
           Task Groups
         </span>
-        <button
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            background: "rgba(255,255,255,0.2)",
-            border: "2px solid rgba(255,255,255,0.3)",
-            borderRadius: "8px",
-            padding: "6px 10px",
-            color: "var(--text-color, #2A2A2A)",
-            cursor: "pointer",
-          }}
-          onClick={createGroup}
-        >
-          <PlusOutlined /> New Group
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(255,255,255,0.2)",
+              border: "2px solid rgba(255,255,255,0.3)",
+              borderRadius: "8px",
+              padding: "6px 10px",
+              color: "var(--text-color, #2A2A2A)",
+              cursor: "pointer",
+            }}
+            onClick={createGroup}
+          >
+            <PlusOutlined /> New Group
+          </button>
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(255,255,255,0.2)",
+              border: "2px solid rgba(255,255,255,0.3)",
+              borderRadius: "8px",
+              padding: "6px 10px",
+              color: "var(--text-color, #2A2A2A)",
+              cursor: "pointer",
+            }}
+            onClick={clearAllTasks}
+            title="Delete all tasks"
+          >
+            <DeleteOutlined /> Clear All Tasks
+          </button>
+        </div>
       </div>
 
       <div
