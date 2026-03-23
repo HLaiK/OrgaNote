@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { PlusOutlined, ToolOutlined, CloseOutlined, DownOutlined } from "@ant-design/icons";
-import { Dropdown } from "antd";
+import { PlusOutlined, ToolOutlined, CloseOutlined } from "@ant-design/icons";
 import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
@@ -228,8 +227,7 @@ export default function Dashboard({themeColor}) {
     }
   });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [customizeThemeOpen, setCustomizeThemeOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('display');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState(() => {
     try {
@@ -251,17 +249,28 @@ export default function Dashboard({themeColor}) {
     } catch (e) {}
     return false;
   });
-  const [notificationLead, setNotificationLead] = useState(() => {
+  const [reminders, setReminders] = useState(() => {
     try {
       const nRaw = localStorage.getItem("organote_notifications");
       if (nRaw) {
         const n = JSON.parse(nRaw);
-        return n.leadMinutes || 60;
+        return Array.isArray(n.reminders) ? n.reminders : [];
       }
     } catch (e) {}
-    return 60;
+    return [];
   });
+  const [showAddReminder, setShowAddReminder] = useState(false);
+  const [newRemType, setNewRemType] = useState('before');
+  const [newRemAmount, setNewRemAmount] = useState(15);
+  const [newRemUnit, setNewRemUnit] = useState('minutes');
+  const [newRemTime, setNewRemTime] = useState('09:00');
   const notifiedRef = React.useRef(new Set());
+  const [bgImage, setBgImage] = useState(() => {
+    try { return localStorage.getItem('organote_bg_image') || ''; } catch (e) { return ''; }
+  });
+  const [bgImageName, setBgImageName] = useState(() => {
+    try { return localStorage.getItem('organote_bg_image_name') || ''; } catch (e) { return ''; }
+  });
 
   useEffect(() => {
     // load modern theme (organote_theme) if present and apply CSS variables
@@ -313,6 +322,16 @@ export default function Dashboard({themeColor}) {
         document.documentElement.style.setProperty("--text-color", saved.text);
         setFontColor(saved.text);
       }
+      // Restore background image if one was saved
+      try {
+        const savedImg = localStorage.getItem('organote_bg_image');
+        if (savedImg) {
+          document.body.style.backgroundImage = `url(${savedImg})`;
+          document.body.style.backgroundSize = 'cover';
+          document.body.style.backgroundPosition = 'center';
+          document.body.style.backgroundRepeat = 'no-repeat';
+        }
+      } catch (imgErr) {}
     } catch (e) {
       console.error('[Dashboard] Mount effect error:', e);
     } finally {
@@ -329,6 +348,21 @@ export default function Dashboard({themeColor}) {
     // Also apply directly to body
     document.body.style.background = bgStr;
   }, [bgColor, gradientColor, useGradient]);
+
+  // Apply/remove background image on body whenever it changes
+  useEffect(() => {
+    if (bgImage) {
+      document.body.style.backgroundImage = `url(${bgImage})`;
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+      document.body.style.backgroundRepeat = 'no-repeat';
+    } else {
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundPosition = '';
+      document.body.style.backgroundRepeat = '';
+    }
+  }, [bgImage]);
 
   // persist background/button/text into organote_theme when bg/gradient changes
   // BUT skip during initial mount (isInitialMount.current is true)
@@ -354,50 +388,61 @@ export default function Dashboard({themeColor}) {
   // persist notification settings when changed
   useEffect(() => {
     try {
-      const n = { enabled: notificationsEnabled, leadMinutes: notificationLead };
+      const n = { enabled: notificationsEnabled, reminders };
       localStorage.setItem("organote_notifications", JSON.stringify(n));
     } catch (e) {}
-  }, [notificationsEnabled, notificationLead]);
+  }, [notificationsEnabled, reminders]);
 
-  // Periodic checker for upcoming due tasks; shows browser notifications
+  // Periodic checker: fires each reminder rule against each incomplete task
   useEffect(() => {
     let intervalId;
     async function checkTasks() {
       try {
-        if (!notificationsEnabled) return;
-        // request permission if needed
+        if (!notificationsEnabled || reminders.length === 0) return;
         if (typeof Notification !== 'undefined' && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
           await Notification.requestPermission();
         }
         const tasks = await apiFetch('/tasks');
         const now = new Date();
-        const leadMs = Math.max(0, notificationLead) * 60 * 1000;
-        
+        const todayStr = now.toISOString().slice(0, 10);
+        const nowH = now.getHours();
+        const nowM = now.getMinutes();
+        const unitMs = { minutes: 60000, hours: 3600000, days: 86400000, weeks: 604800000 };
+
         tasks.forEach((t) => {
-          if (!t.due_date) return;
           if (t.status === 'completed') return;
-          
-          const due = new Date(t.due_date);
-          const diff = due.getTime() - now.getTime(); // milliseconds until due
-          
-          // notify if: task is within the lead window AND hasn't been notified yet AND is not too far in the past
-          const shouldNotify = diff <= leadMs && diff >= -60000 && !notifiedRef.current.has(t.id); // allow 1 min grace for tasks just passed
-          
-          if (shouldNotify) {
-            const title = `Task due: ${t.title}`;
-            const timeStr = due.toLocaleString();
-            const body = diff <= 0 ? `Was due at ${timeStr}` : `Due at ${timeStr}`;
-            
-            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-              try {
-                new Notification(title, { body, tag: `task-${t.id}` });
-              } catch (err) {
-                console.error('Notification error:', err);
-              }
+          reminders.forEach((r) => {
+            const notifKey = `${t.id}-${r.id}-${todayStr}`;
+            if (notifiedRef.current.has(notifKey)) return;
+            let shouldNotify = false;
+            let body = '';
+            if (r.type === 'before' && t.due_date) {
+              const due = new Date(t.due_date);
+              const diff = due.getTime() - now.getTime();
+              const leadMs = (r.amount || 15) * (unitMs[r.unit] || 60000);
+              shouldNotify = diff <= leadMs && diff >= -60000;
+              if (shouldNotify) body = `due ${due.toLocaleString()}`;
+            } else if (r.type === 'dayof' && t.due_date) {
+              const due = new Date(t.due_date);
+              const [remH, remM] = (r.time || '09:00').split(':').map(Number);
+              shouldNotify = due.toISOString().slice(0, 10) === todayStr && nowH === remH && nowM === remM;
+              if (shouldNotify) body = `due today at ${due.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            } else if (r.type === 'daily') {
+              const [remH, remM] = (r.time || '09:00').split(':').map(Number);
+              shouldNotify = nowH === remH && nowM === remM;
+              if (shouldNotify) body = t.due_date ? `due ${new Date(t.due_date).toLocaleDateString()}` : 'incomplete task';
             }
-            notifiedRef.current.add(t.id);
-            console.log(`[Notification] ${title} - ${body} (diff: ${diff}ms, lead: ${leadMs}ms)`);
-          }
+            if (shouldNotify) {
+              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                try {
+                  new Notification(`Task: ${t.title}`, { body, tag: notifKey });
+                } catch (err) {
+                  console.error('Notification error:', err);
+                }
+              }
+              notifiedRef.current.add(notifKey);
+            }
+          });
         });
       } catch (e) {
         console.error('Notification check failed', e);
@@ -405,7 +450,6 @@ export default function Dashboard({themeColor}) {
     }
 
     if (notificationsEnabled) {
-      // initial check, then every minute
       checkTasks();
       intervalId = setInterval(checkTasks, 60 * 1000);
     }
@@ -413,7 +457,7 @@ export default function Dashboard({themeColor}) {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [notificationsEnabled, notificationLead]);
+  }, [notificationsEnabled, reminders]);
 
   // helper function to normalize color values to valid hex for color inputs
   const normalizeColor = (colorStr) => {
@@ -484,6 +528,72 @@ export default function Dashboard({themeColor}) {
     } catch (e) {}
   }, [fontColor]);
 
+  const handleBgImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/gif'].includes(file.type)) {
+      alert('Only PNG and GIF files are supported.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      try {
+        localStorage.setItem('organote_bg_image', dataUrl);
+        localStorage.setItem('organote_bg_image_name', file.name);
+        setBgImage(dataUrl);
+        setBgImageName(file.name);
+      } catch (err) {
+        alert('Image is too large to save. Try a file smaller than 4 MB.');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const clearBgImage = () => {
+    try {
+      localStorage.removeItem('organote_bg_image');
+      localStorage.removeItem('organote_bg_image_name');
+    } catch (e) {}
+    setBgImage('');
+    setBgImageName('');
+  };
+
+  const formatRemTime = (raw) => {
+    if (!raw) return '';
+    const [hStr, mStr] = raw.split(':');
+    const h = parseInt(hStr, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = (h % 12) || 12;
+    return `${h12}:${mStr} ${ampm}`;
+  };
+
+  const addReminder = () => {
+    let label, timeLabel;
+    if (newRemType === 'before') {
+      label = 'Before event';
+      timeLabel = `${newRemAmount} ${newRemUnit}`;
+    } else if (newRemType === 'dayof') {
+      label = 'Day of — morning';
+      timeLabel = formatRemTime(newRemTime);
+    } else {
+      label = 'Daily reminder';
+      timeLabel = formatRemTime(newRemTime);
+    }
+    setReminders(prev => [...prev, { id: Date.now().toString(), type: newRemType, amount: newRemAmount, unit: newRemUnit, time: newRemTime, label, timeLabel }]);
+    setShowAddReminder(false);
+    setNewRemType('before');
+    setNewRemAmount(15);
+    setNewRemUnit('minutes');
+    setNewRemTime('09:00');
+  };
+
+  const deleteReminder = (id) => {
+    setReminders(prev => prev.filter(r => r.id !== id));
+  };
+
   const handleTasksChanged = () => {
     setRefreshTrigger(prev => prev + 1);
   };
@@ -497,8 +607,18 @@ export default function Dashboard({themeColor}) {
     }
   }, [viewMode]);
 
+  const containerStyle = bgImage
+    ? {
+        ...styles.container,
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }
+    : styles.container;
+
   return (
-    <div style={styles.container} data-dashboard-container>
+    <div style={containerStyle} data-dashboard-container>
       {/* LEFT SIDEBAR */}
       <div style={styles.sidebar}>
         {/* Calendar */}
@@ -645,160 +765,307 @@ export default function Dashboard({themeColor}) {
       {/* Settings Modal */}
       {showSettings && (
         <div style={styles.modalOverlay} onClick={() => setShowSettings(false)}>
-          <div style={{ ...styles.modal, background: useGradient ? `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)` : bgColor }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={styles.modalTitle}>Settings</h3>
+          <div
+            style={{
+              borderRadius: '16px',
+              maxWidth: '460px',
+              width: '90%',
+              overflow: 'hidden',
+              backdropFilter: 'blur(20px)',
+              background: 'rgba(255,255,255,0.12)',
+              border: '2px solid rgba(255,255,255,0.25)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+              position: 'relative',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: '4px', fontWeight: 400 }}>Preferences</div>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontStyle: 'italic', fontFamily: "'Brush Script MT', cursive", color: 'var(--text-color, white)', lineHeight: 1 }}>Settings</h3>
+              </div>
               <button
-                style={styles.closeButton}
                 onClick={() => setShowSettings(false)}
+                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-color, rgba(255,255,255,0.7))', fontSize: '0.85rem', transition: 'all 0.2s', flexShrink: 0 }}
               >
                 <CloseOutlined />
               </button>
             </div>
 
-            {/* Customize Theme Dropdown */}
-            <Dropdown
-              menu={{
-                items: [
-                  {
-                    key: 'bg-color',
-                    label: (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <label style={styles.settingLabel}>Background color</label>
-                        <input
-                          type="color"
-                          value={normalizeColor(bgColor)}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setBgColor(v);
-                            saveBackgroundToTheme(v, useGradient, gradientColor);
-                          }}
-                          style={styles.colorInput}
-                          onMouseDown={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    ),
-                  },
-                  {
-                    key: 'font-color',
-                    label: (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <label style={styles.settingLabel}>Font color</label>
-                        <input
-                          type="color"
-                          value={fontColor}
-                          onChange={(e) => {
-                            setFontColor(e.target.value);
-                          }}
-                          style={styles.colorInput}
-                          onMouseDown={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    ),
-                  },
-                  {
-                    key: 'gradient',
-                    label: (
-                      <label style={styles.settingLabel} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={useGradient}
-                          onChange={(e) => {
-                            const flag = e.target.checked;
-                            setUseGradient(flag);
-                            saveBackgroundToTheme(bgColor, flag, gradientColor);
-                          }}
-                          style={{ marginRight: "8px", cursor: "pointer" }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                        />
-                        Use Gradient
-                      </label>
-                    ),
-                  },
-                  ...(useGradient ? [{
-                    key: 'gradient-color',
-                    label: (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <label style={styles.settingLabel}>Gradient color</label>
-                        <input
-                          type="color"
-                          value={normalizeColor(gradientColor)}
-                          onChange={(e) => {
-                            setGradientColor(e.target.value);
-                            saveBackgroundToTheme(bgColor, true, e.target.value);
-                          }}
-                          style={styles.colorInput}
-                          onMouseDown={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                    ),
-                  }] : []),
-                ]
-              }}
-              trigger={['click']}
-              open={customizeThemeOpen}
-              onOpenChange={setCustomizeThemeOpen}
-            >
-              <a onClick={e => e.preventDefault()} style={{ fontSize: '1rem', color: 'var(--text-color, white)' }}>
-                Customize Theme <DownOutlined />
-              </a>
-            </Dropdown>
-
-            <div style={{ marginTop: '16px' }}>
-              {/* Notifications Dropdown */}
-              <Dropdown
-                menu={{
-                  items: [
-                    {
-                      key: 'notifications-enable',
-                      label: (
-                        <label style={styles.settingLabel} onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={notificationsEnabled}
-                            onChange={(e) => {
-                              setNotificationsEnabled(e.target.checked);
-                            }}
-                            style={{ marginRight: "8px", cursor: "pointer" }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          />
-                          Enable Notifications
-                        </label>
-                      ),
-                    },
-                    {
-                      key: 'lead-time',
-                      label: (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <label style={styles.settingLabel}>Lead time (minutes)</label>
-                          <select
-                            value={notificationLead}
-                            onChange={(e) => {
-                              setNotificationLead(Number(e.target.value));
-                            }}
-                            style={{ marginLeft: '8px', padding: '4px', borderRadius: '4px' }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          >
-                            <option value={15}>15 min</option>
-                            <option value={30}>30 min</option>
-                            <option value={60}>1 hour</option>
-                            <option value={120}>2 hours</option>
-                            <option value={1440}>1 day</option>
-                          </select>
-                        </div>
-                      ),
-                    },
-                  ]
-                }}
-                trigger={['click']}
-                open={notificationsOpen}
-                onOpenChange={setNotificationsOpen}
-              >
-                <a onClick={e => e.preventDefault()} style={{ fontSize: '1rem', color: 'var(--text-color, white)' }}>
-                  Notifications <DownOutlined />
-                </a>
-              </Dropdown>
+            {/* Tabs */}
+            <div style={{ display: 'flex', padding: '0 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              {['display', 'alerts'].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setSettingsTab(tab)}
+                  style={{
+                    padding: '10px 16px 11px',
+                    fontSize: '11px',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    color: settingsTab === tab ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.4)',
+                    cursor: 'pointer',
+                    border: 'none',
+                    borderBottom: settingsTab === tab ? '2px solid rgba(255,255,255,0.8)' : '2px solid transparent',
+                    marginBottom: '-1px',
+                    background: 'none',
+                    transition: 'all 0.2s',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {tab === 'display' ? 'Display' : 'Alerts'}
+                </button>
+              ))}
             </div>
+
+            {/* ---- DISPLAY TAB ---- */}
+            {settingsTab === 'display' && (
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Appearance</div>
+
+                {/* Background Color */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>◉</div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Background Color</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Base theme color</div>
+                    </div>
+                  </div>
+                  <input
+                    type="color"
+                    value={normalizeColor(bgColor)}
+                    onChange={(e) => { const v = e.target.value; setBgColor(v); saveBackgroundToTheme(v, useGradient, gradientColor); }}
+                    style={{ width: '36px', height: '36px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', cursor: 'pointer', padding: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}
+                  />
+                </div>
+
+                {/* Font Color */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'serif', fontSize: '15px', fontWeight: 'bold', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>A</div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Font Color</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Text appearance</div>
+                    </div>
+                  </div>
+                  <input
+                    type="color"
+                    value={fontColor}
+                    onChange={(e) => setFontColor(e.target.value)}
+                    style={{ width: '36px', height: '36px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', cursor: 'pointer', padding: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}
+                  />
+                </div>
+
+                {/* Gradient Toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>GR</div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Gradient Background</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Blend two colors</div>
+                    </div>
+                  </div>
+                  <div
+                    onClick={() => { const f = !useGradient; setUseGradient(f); saveBackgroundToTheme(bgColor, f, gradientColor); }}
+                    style={{ width: '44px', height: '24px', borderRadius: '12px', background: useGradient ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.15)', border: `1px solid ${useGradient ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.2)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 }}
+                  >
+                    <div style={{ position: 'absolute', top: '3px', left: useGradient ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+                  </div>
+                </div>
+
+                {/* Gradient End Color */}
+                {useGradient && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>→</div>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Gradient End Color</div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Second blend color</div>
+                      </div>
+                    </div>
+                    <input
+                      type="color"
+                      value={normalizeColor(gradientColor)}
+                      onChange={(e) => { setGradientColor(e.target.value); saveBackgroundToTheme(bgColor, true, e.target.value); }}
+                      style={{ width: '36px', height: '36px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', cursor: 'pointer', padding: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}
+                    />
+                  </div>
+                )}
+
+                {/* Background Image Upload */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>🖼️</div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Background Image</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>PNG or GIF only — max ~4 MB</div>
+                    </div>
+                  </div>
+
+                  {bgImage ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '8px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <img src={bgImage} alt="preview" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0 }} />
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bgImageName}</span>
+                      </div>
+                      <button
+                        onClick={clearBgImage}
+                        title="Remove image"
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: '11px', padding: '4px 8px', flexShrink: 0, transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#e88080'; e.currentTarget.style.borderColor = '#e88080'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                      >Remove</button>
+                    </div>
+                  ) : (
+                    <label
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '9px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                    >
+                      <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '16px', lineHeight: 1 }}>↑</span>
+                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Drop or click to browse…</span>
+                      <input type="file" accept="image/png,image/gif" onChange={handleBgImageUpload} style={{ display: 'none' }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ---- ALERTS TAB ---- */}
+            {settingsTab === 'alerts' && (
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Notifications</div>
+
+                {/* Enable Notifications toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>🔔</div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Enable Notifications</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Push and in-app alerts</div>
+                    </div>
+                  </div>
+                  <div
+                    onClick={() => setNotificationsEnabled(prev => !prev)}
+                    style={{ width: '44px', height: '24px', borderRadius: '12px', background: notificationsEnabled ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.15)', border: `1px solid ${notificationsEnabled ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.2)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 }}
+                  >
+                    <div style={{ position: 'absolute', top: '3px', left: notificationsEnabled ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+                  </div>
+                </div>
+
+                {/* Reminders panel */}
+                {notificationsEnabled && (
+                  <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', padding: '14px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: '10px' }}>Reminders</div>
+
+                    {/* Existing reminders */}
+                    {reminders.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                        {reminders.map(r => (
+                          <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '9px', padding: '8px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
+                              <span style={{ fontSize: '12px', color: 'var(--text-color, white)' }}>{r.label}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{r.timeLabel}</span>
+                              <button
+                                onClick={() => deleteReminder(r.id)}
+                                title="Remove"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: '13px', padding: '0 2px', lineHeight: 1, transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = '#e88080'}
+                                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                              >✕</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add reminder trigger */}
+                    {!showAddReminder && (
+                      <div
+                        onClick={() => setShowAddReminder(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '9px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                      >
+                        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '18px', lineHeight: 1, fontWeight: 300 }}>+</span>
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Add a reminder...</span>
+                      </div>
+                    )}
+
+                    {/* Add reminder form */}
+                    {showAddReminder && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '9px', padding: '12px' }}>
+                        <select
+                          value={newRemType}
+                          onChange={e => setNewRemType(e.target.value)}
+                          style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', color: 'var(--text-color, white)', fontFamily: 'inherit', fontSize: '12px', padding: '7px 10px', cursor: 'pointer', outline: 'none', width: '100%' }}
+                        >
+                          <option value="before">Before event</option>
+                          <option value="dayof">Day of — morning</option>
+                          <option value="daily">Daily (all incomplete tasks)</option>
+                        </select>
+
+                        {newRemType === 'before' && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <input
+                              type="number"
+                              min="1"
+                              max="9999"
+                              value={newRemAmount}
+                              onChange={e => setNewRemAmount(Number(e.target.value) || 1)}
+                              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', color: 'var(--text-color, white)', fontSize: '14px', padding: '6px 10px', outline: 'none', width: '64px', textAlign: 'center' }}
+                            />
+                            <select
+                              value={newRemUnit}
+                              onChange={e => setNewRemUnit(e.target.value)}
+                              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', color: 'var(--text-color, white)', fontFamily: 'inherit', fontSize: '12px', padding: '7px 10px', cursor: 'pointer', outline: 'none' }}
+                            >
+                              <option value="minutes">minutes</option>
+                              <option value="hours">hours</option>
+                              <option value="days">days</option>
+                              <option value="weeks">weeks</option>
+                            </select>
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>before</span>
+                          </div>
+                        )}
+
+                        {(newRemType === 'dayof' || newRemType === 'daily') && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>At</span>
+                            <input
+                              type="time"
+                              value={newRemTime}
+                              onChange={e => setNewRemTime(e.target.value)}
+                              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', color: 'var(--text-color, white)', fontSize: '13px', padding: '6px 10px', outline: 'none' }}
+                            />
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={addReminder}
+                            style={{ padding: '7px 16px', borderRadius: '7px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.9)', fontFamily: 'inherit', fontSize: '11px', letterSpacing: '1px', cursor: 'pointer', transition: 'all 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                          >Add</button>
+                          <button
+                            onClick={() => { setShowAddReminder(false); setNewRemType('before'); setNewRemAmount(15); setNewRemUnit('minutes'); setNewRemTime('09:00'); }}
+                            style={{ padding: '7px 14px', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit', fontSize: '11px', cursor: 'pointer', transition: 'all 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-color, white)'}
+                            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                          >Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
