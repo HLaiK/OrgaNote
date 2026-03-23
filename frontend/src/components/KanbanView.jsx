@@ -9,7 +9,11 @@ import { apiFetch } from "../api";
 
 const UNGROUPED_ID = "__ungrouped__";
 
-export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
+export default function KanbanView({
+  refreshTrigger,
+  searchQuery = "",
+  onTasksChanged,
+}) {
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +62,7 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
     try {
       await apiFetch(`/tasks/${taskId}`, { method: "DELETE" });
       setTasks((prev) => prev.filter((task) => task.id !== taskId));
+      onTasksChanged?.();
     } catch (err) {
       console.error("Delete error:", err);
     }
@@ -72,6 +77,7 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
     try {
       await apiFetch("/tasks", { method: "DELETE" });
       setTasks([]);
+      onTasksChanged?.();
     } catch (err) {
       console.error("Clear all tasks error:", err);
       alert("Failed to clear all tasks");
@@ -87,6 +93,7 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
       setTasks((prev) =>
         prev.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task)),
       );
+      onTasksChanged?.();
     } catch (err) {
       console.error("Update error:", err);
     }
@@ -138,6 +145,7 @@ export default function KanbanView({ refreshTrigger, searchQuery = "" }) {
       });
       setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)));
       setEditingTask(null);
+      onTasksChanged?.();
     } catch (err) {
       console.error("Update error:", err);
     }

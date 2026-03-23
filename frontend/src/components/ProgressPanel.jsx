@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../api";
 
-export default function ProgressPanel() {
+export default function ProgressPanel({ refreshTrigger = 0 }) {
   const [completedTasks, setCompletedTasks] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
 
   useEffect(() => {
     loadTasks();
-  }, []);
+  }, [refreshTrigger]);
 
   const loadTasks = async () => {
     try {

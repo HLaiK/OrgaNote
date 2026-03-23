@@ -484,7 +484,7 @@ export default function Dashboard({themeColor}) {
     } catch (e) {}
   }, [fontColor]);
 
-  const handleTasksCreated = () => {
+  const handleTasksChanged = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
@@ -508,7 +508,7 @@ export default function Dashboard({themeColor}) {
 
         {/* Progress */}
         <div style={styles.panel}>
-          <ProgressPanel />
+          <ProgressPanel refreshTrigger={refreshTrigger} />
         </div>
       </div>
 
@@ -606,9 +606,17 @@ export default function Dashboard({themeColor}) {
         {/* Conditional View Rendering */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {viewMode === 'list' ? (
-            <TasksPanel refreshTrigger={refreshTrigger} searchQuery={searchQuery} />
+            <TasksPanel
+              refreshTrigger={refreshTrigger}
+              searchQuery={searchQuery}
+              onTasksChanged={handleTasksChanged}
+            />
           ) : (
-            <KanbanView refreshTrigger={refreshTrigger} searchQuery={searchQuery} />
+            <KanbanView
+              refreshTrigger={refreshTrigger}
+              searchQuery={searchQuery}
+              onTasksChanged={handleTasksChanged}
+            />
           )}
         </div>
       </div>
@@ -627,7 +635,7 @@ export default function Dashboard({themeColor}) {
             <h3 style={styles.modalTitle}>Add Tasks</h3>
 
             <UnstructuredInput onTasksCreated={() => {
-              handleTasksCreated();
+              handleTasksChanged();
               setShowAddTask(false);
             }} />
           </div>

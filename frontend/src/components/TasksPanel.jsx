@@ -10,7 +10,11 @@ import { apiFetch } from "../api";
 
 const UNGROUPED_ID = "__ungrouped__";
 
-export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
+export default function TasksPanel({
+  refreshTrigger,
+  searchQuery = "",
+  onTasksChanged,
+}) {
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -113,6 +117,7 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
           .slice()
           .sort((a, b) => (a.status === "completed") - (b.status === "completed")),
       );
+      onTasksChanged?.();
     } catch (err) {
       console.error("Error updating task:", err);
     }
@@ -122,6 +127,7 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
     try {
       await apiFetch(`/tasks/${taskId}`, { method: "DELETE" });
       setTasks((prev) => prev.filter((task) => task.id !== taskId));
+      onTasksChanged?.();
     } catch (err) {
       console.error("Error deleting task:", err);
     }
@@ -136,6 +142,7 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
     try {
       await apiFetch("/tasks", { method: "DELETE" });
       setTasks([]);
+      onTasksChanged?.();
     } catch (err) {
       console.error("Error clearing all tasks:", err);
       alert("Failed to clear all tasks");
@@ -277,6 +284,7 @@ export default function TasksPanel({ refreshTrigger, searchQuery = "" }) {
 
       setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)));
       setEditingTask(null);
+      onTasksChanged?.();
     } catch (err) {
       console.error("Error editing task:", err);
     }
