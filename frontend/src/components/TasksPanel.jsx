@@ -9,6 +9,15 @@ import {
 import { apiFetch } from "../api";
 
 const UNGROUPED_ID = "__ungrouped__";
+const TASK_REMINDER_OPTIONS = [
+  { value: "", label: "No reminder" },
+  { value: "0", label: "At due time" },
+  { value: "5", label: "5 minutes before" },
+  { value: "15", label: "15 minutes before" },
+  { value: "30", label: "30 minutes before" },
+  { value: "60", label: "1 hour before" },
+  { value: "1440", label: "1 day before" },
+];
 
 export default function TasksPanel({
   refreshTrigger,
@@ -42,6 +51,15 @@ export default function TasksPanel({
     } catch {
       return "";
     }
+  };
+
+  const toApiDueDate = (value) => {
+    if (!value) return null;
+    if (typeof value === "string" && (value.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(value))) {
+      return value;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
   };
 
   const loadAll = async () => {
@@ -274,7 +292,10 @@ export default function TasksPanel({
         description: editingTask.description,
         category: editingTask.category,
         priority: editingTask.priority,
-        due_date: editingTask.due_date,
+        due_date: toApiDueDate(editingTask.due_date),
+        reminder_offset_minutes: editingTask.due_date
+          ? editingTask.reminder_offset_minutes ?? null
+          : null,
         group_id: editingTask.group_id || null,
       };
 
@@ -513,11 +534,40 @@ export default function TasksPanel({
                   value={
                     editingTask.due_date ? localDateTimeForInput(editingTask.due_date) : ""
                   }
-                  onChange={(e) =>
-                    handleEditChange("due_date", e.target.value ? e.target.value : null)
-                  }
+                  onChange={(e) => {
+                    const nextDueDate = e.target.value ? e.target.value : null;
+                    setEditingTask((current) => ({
+                      ...current,
+                      due_date: nextDueDate,
+                      reminder_offset_minutes: nextDueDate
+                        ? current.reminder_offset_minutes ?? 15
+                        : null,
+                    }));
+                  }}
                 />
               </div>
+
+              {editingTask.due_date && (
+                <div>
+                  <label style={modalStyles.label}>Reminder</label>
+                  <select
+                    style={modalStyles.input}
+                    value={editingTask.reminder_offset_minutes ?? ""}
+                    onChange={(e) =>
+                      handleEditChange(
+                        "reminder_offset_minutes",
+                        e.target.value === "" ? null : Number(e.target.value),
+                      )
+                    }
+                  >
+                    {TASK_REMINDER_OPTIONS.map((option) => (
+                      <option key={option.value || "none"} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", gap: "12px" }}>

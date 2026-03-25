@@ -8,6 +8,15 @@ import {
 import { apiFetch } from "../api";
 
 const UNGROUPED_ID = "__ungrouped__";
+const TASK_REMINDER_OPTIONS = [
+  { value: "", label: "No reminder" },
+  { value: "0", label: "At due time" },
+  { value: "5", label: "5 minutes before" },
+  { value: "15", label: "15 minutes before" },
+  { value: "30", label: "30 minutes before" },
+  { value: "60", label: "1 hour before" },
+  { value: "1440", label: "1 day before" },
+];
 
 export default function KanbanView({
   refreshTrigger,
@@ -134,13 +143,25 @@ export default function KanbanView({
     }));
   };
 
+  const toApiDueDate = (value) => {
+    if (!value) return null;
+    if (typeof value === "string" && (value.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(value))) {
+      return value;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  };
+
   const submitEdit = async () => {
     try {
       const updated = await apiFetch(`/tasks/${editingTask.id}`, {
         method: "PUT",
         body: {
           title: editingTask.title,
-          due_date: editingTask.due_date,
+          due_date: toApiDueDate(editingTask.due_date),
+          reminder_offset_minutes: editingTask.due_date
+            ? editingTask.reminder_offset_minutes ?? null
+            : null,
           group_id: editingTask.group_id || null,
         },
       });
@@ -876,7 +897,16 @@ export default function KanbanView({
                 <input
                   type="datetime-local"
                   value={editingTask.due_date ? localDateTimeForInput(editingTask.due_date) : ""}
-                  onChange={(e) => handleEditChange("due_date", e.target.value ? e.target.value : null)}
+                  onChange={(e) => {
+                    const nextDueDate = e.target.value ? e.target.value : null;
+                    setEditingTask((current) => ({
+                      ...current,
+                      due_date: nextDueDate,
+                      reminder_offset_minutes: nextDueDate
+                        ? current.reminder_offset_minutes ?? 15
+                        : null,
+                    }));
+                  }}
                   style={{
                     width: "100%",
                     padding: "12px",
@@ -891,6 +921,41 @@ export default function KanbanView({
                   }}
                 />
               </div>
+
+              {editingTask.due_date && (
+                <div>
+                  <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "var(--text-color, rgba(255,255,255,0.9))" }}>
+                    Reminder
+                  </label>
+                  <select
+                    value={editingTask.reminder_offset_minutes ?? ""}
+                    onChange={(e) =>
+                      handleEditChange(
+                        "reminder_offset_minutes",
+                        e.target.value === "" ? null : Number(e.target.value),
+                      )
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      borderRadius: "8px",
+                      fontSize: "0.95rem",
+                      boxSizing: "border-box",
+                      backgroundColor: "rgba(255,255,255,0.1)",
+                      color: "var(--text-color, white)",
+                      fontFamily: "inherit",
+                      backdropFilter: "blur(5px)",
+                    }}
+                  >
+                    {TASK_REMINDER_OPTIONS.map((option) => (
+                      <option key={option.value || "none"} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", gap: "12px" }}>

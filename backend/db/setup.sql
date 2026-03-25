@@ -5,12 +5,15 @@ CREATE TABLE IF NOT EXISTS tasks (
   category VARCHAR(50),
   priority VARCHAR(20) DEFAULT 'medium',
   due_date TIMESTAMP,
+  reminder_offset_minutes INTEGER,
   status VARCHAR(20) DEFAULT 'pending',
   user_id TEXT,
   group_id INTEGER,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_offset_minutes INTEGER;
 
 CREATE TABLE IF NOT EXISTS task_groups (
   id SERIAL PRIMARY KEY,

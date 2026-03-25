@@ -2,6 +2,22 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db/db");
 
+let ensureReminderColumnPromise = null;
+function ensureReminderColumn() {
+  if (!ensureReminderColumnPromise) {
+    ensureReminderColumnPromise = pool
+      .query(
+        "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_offset_minutes INTEGER",
+      )
+      .catch((err) => {
+        // allow retry on next request if migration fails transiently
+        ensureReminderColumnPromise = null;
+        throw err;
+      });
+  }
+  return ensureReminderColumnPromise;
+}
+
 // GET all tasks for a specific user
 router.get("/", async (req, res) => {
   const userId = req.headers["x-user-id"];
@@ -42,13 +58,21 @@ router.get("/:id", async (req, res) => {
 // CREATE a new task for a specific user
 router.post("/", async (req, res) => {
   const userId = req.headers["x-user-id"];
-  const { title, description, category, priority, due_date, group_id } =
-    req.body;
+  const {
+    title,
+    description,
+    category,
+    priority,
+    due_date,
+    group_id,
+    reminder_offset_minutes,
+  } = req.body;
 
   try {
+    await ensureReminderColumn();
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, category, priority, due_date, user_id, group_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO tasks (title, description, category, priority, due_date, reminder_offset_minutes, user_id, group_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         title,
@@ -56,6 +80,7 @@ router.post("/", async (req, res) => {
         category,
         priority,
         due_date,
+        due_date ? (reminder_offset_minutes ?? null) : null,
         userId,
         group_id ?? null,
       ],
@@ -71,32 +96,54 @@ router.post("/", async (req, res) => {
 // UPDATE a task (only if it belongs to the user)
 router.put("/:id", async (req, res) => {
   const userId = req.headers["x-user-id"];
-  const { title, description, category, priority, due_date, status, group_id } =
-    req.body;
+  const {
+    title,
+    description,
+    category,
+    priority,
+    due_date,
+    status,
+    group_id,
+    reminder_offset_minutes,
+  } = req.body;
   const hasGroupId = Object.prototype.hasOwnProperty.call(req.body, "group_id");
+  const hasDueDate = Object.prototype.hasOwnProperty.call(req.body, "due_date");
+  const hasReminderOffset = Object.prototype.hasOwnProperty.call(
+    req.body,
+    "reminder_offset_minutes",
+  );
 
   try {
+    await ensureReminderColumn();
     const result = await pool.query(
       `UPDATE tasks
        SET title = COALESCE($1, title),
            description = COALESCE($2, description),
            category = COALESCE($3, category),
            priority = COALESCE($4, priority),
-           due_date = COALESCE($5, due_date),
-           status = COALESCE($6, status),
-           group_id = CASE WHEN $7 THEN $8 ELSE group_id END,
+           due_date = CASE WHEN $5 THEN $6 ELSE due_date END,
+           status = COALESCE($7, status),
+           group_id = CASE WHEN $8 THEN $9 ELSE group_id END,
+           reminder_offset_minutes = CASE
+             WHEN $5 AND $6 IS NULL THEN NULL
+             WHEN $10 THEN $11
+             ELSE reminder_offset_minutes
+           END,
            updated_at = NOW()
-       WHERE id = $9 AND user_id = $10
+       WHERE id = $12 AND user_id = $13
        RETURNING *`,
       [
         title,
         description,
         category,
         priority,
+        hasDueDate,
         due_date,
         status,
         hasGroupId,
         group_id ?? null,
+        hasReminderOffset,
+        due_date ? (reminder_offset_minutes ?? null) : null,
         req.params.id,
         userId,
       ],

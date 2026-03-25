@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   category TEXT,
   priority INTEGER,
   due_date TIMESTAMPTZ,
+  reminder_offset_minutes INTEGER,
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -13,6 +14,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id TEXT;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS group_id INTEGER;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_offset_minutes INTEGER;
 
 CREATE TABLE IF NOT EXISTS task_groups (
   id SERIAL PRIMARY KEY,

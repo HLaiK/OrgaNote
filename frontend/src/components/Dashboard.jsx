@@ -271,6 +271,22 @@ export default function Dashboard({themeColor}) {
   const [bgImageName, setBgImageName] = useState(() => {
     try { return localStorage.getItem('organote_bg_image_name') || ''; } catch (e) { return ''; }
   });
+  const hasTaskReminder = (task) =>
+    task?.due_date && task?.reminder_offset_minutes !== null && task?.reminder_offset_minutes !== undefined;
+  const pushReminder = (title, body, tag) => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try {
+        new Notification(title, { body, tag });
+        return;
+      } catch (err) {
+        console.error('Notification error:', err);
+      }
+    }
+    // Fallback for browsers where Notification is blocked/unavailable.
+    if (typeof window !== 'undefined') {
+      window.alert(`${title}\n${body}`);
+    }
+  };
 
   useEffect(() => {
     // load modern theme (organote_theme) if present and apply CSS variables
@@ -398,19 +414,45 @@ export default function Dashboard({themeColor}) {
     let intervalId;
     async function checkTasks() {
       try {
-        if (!notificationsEnabled || reminders.length === 0) return;
         if (typeof Notification !== 'undefined' && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
           await Notification.requestPermission();
         }
         const tasks = await apiFetch('/tasks');
+        const activeTasks = tasks.filter((task) => task.status !== 'completed');
+        const hasTaskSpecificReminders = activeTasks.some((task) => hasTaskReminder(task));
+        const globalRemindersEnabled = notificationsEnabled && reminders.length > 0;
+        if (!globalRemindersEnabled && !hasTaskSpecificReminders) return;
         const now = new Date();
         const todayStr = now.toISOString().slice(0, 10);
         const nowH = now.getHours();
         const nowM = now.getMinutes();
         const unitMs = { minutes: 60000, hours: 3600000, days: 86400000, weeks: 604800000 };
 
-        tasks.forEach((t) => {
-          if (t.status === 'completed') return;
+        activeTasks.forEach((t) => {
+          if (hasTaskReminder(t)) {
+            const due = new Date(t.due_date);
+            if (Number.isNaN(due.getTime())) return;
+            const dueKey = due.toISOString();
+            const notifKey = `${t.id}-task-${t.reminder_offset_minutes}-${dueKey}`;
+            if (!notifiedRef.current.has(notifKey)) {
+              const leadMs = Number(t.reminder_offset_minutes || 0) * 60000;
+              const triggerAt = due.getTime() - leadMs;
+              const catchUpUntil = due.getTime() + (24 * 60 * 60 * 1000);
+              const nowTs = now.getTime();
+              const shouldNotify = nowTs >= triggerAt && nowTs <= catchUpUntil;
+              if (shouldNotify) {
+                const body = nowTs > due.getTime()
+                  ? `was due ${due.toLocaleString()}`
+                  : `due ${due.toLocaleString()}`;
+                pushReminder(`Task: ${t.title}`, body, notifKey);
+                notifiedRef.current.add(notifKey);
+              }
+            }
+            return;
+          }
+
+          if (!globalRemindersEnabled) return;
+
           reminders.forEach((r) => {
             const notifKey = `${t.id}-${r.id}-${todayStr}`;
             if (notifiedRef.current.has(notifKey)) return;
@@ -433,13 +475,7 @@ export default function Dashboard({themeColor}) {
               if (shouldNotify) body = t.due_date ? `due ${new Date(t.due_date).toLocaleDateString()}` : 'incomplete task';
             }
             if (shouldNotify) {
-              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                try {
-                  new Notification(`Task: ${t.title}`, { body, tag: notifKey });
-                } catch (err) {
-                  console.error('Notification error:', err);
-                }
-              }
+              pushReminder(`Task: ${t.title}`, body, notifKey);
               notifiedRef.current.add(notifKey);
             }
           });
@@ -449,10 +485,8 @@ export default function Dashboard({themeColor}) {
       }
     }
 
-    if (notificationsEnabled) {
-      checkTasks();
-      intervalId = setInterval(checkTasks, 60 * 1000);
-    }
+    checkTasks();
+    intervalId = setInterval(checkTasks, 60 * 1000);
 
     return () => {
       if (intervalId) clearInterval(intervalId);
