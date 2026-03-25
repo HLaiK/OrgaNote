@@ -14,6 +14,7 @@ export default function TasksPanel({
   refreshTrigger,
   searchQuery = "",
   onTasksChanged,
+  onAddTasks,
 }) {
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -305,8 +306,8 @@ export default function TasksPanel({
       <div style={styles.groupToolbar}>
         <span style={styles.groupToolbarLabel}>Task Groups</span>
         <div style={styles.groupToolbarActions}>
-          <button style={styles.groupAddButton} onClick={createGroup}>
-            <PlusOutlined /> New Group
+          <button style={styles.groupAddButton} onClick={() => onAddTasks?.()}>
+            <PlusOutlined /> Add Tasks
           </button>
           <button style={styles.groupAddButton} onClick={clearAllTasks} title="Delete all tasks">
             <DeleteOutlined /> Clear All Tasks

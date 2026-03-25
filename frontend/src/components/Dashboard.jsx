@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { PlusOutlined, ToolOutlined, CloseOutlined } from "@ant-design/icons";
+import { ToolOutlined, CloseOutlined } from "@ant-design/icons";
 import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
@@ -645,13 +645,6 @@ export default function Dashboard({themeColor}) {
           <div style={styles.headerIcons}>
             <button
               style={styles.headerButton}
-              onClick={() => setShowAddTask(true)}
-              title="Add task"
-            >
-              <PlusOutlined />
-            </button>
-            <button
-              style={styles.headerButton}
               onClick={() => setShowSettings(true)}
               title="Settings"
             >
@@ -730,12 +723,14 @@ export default function Dashboard({themeColor}) {
               refreshTrigger={refreshTrigger}
               searchQuery={searchQuery}
               onTasksChanged={handleTasksChanged}
+              onAddTasks={() => setShowAddTask(true)}
             />
           ) : (
             <KanbanView
               refreshTrigger={refreshTrigger}
               searchQuery={searchQuery}
               onTasksChanged={handleTasksChanged}
+              onAddTasks={() => setShowAddTask(true)}
             />
           )}
         </div>
@@ -819,7 +814,7 @@ export default function Dashboard({themeColor}) {
               ))}
             </div>
 
-            {/* ---- DISPLAY TAB ---- */}
+            {/* Display tab*/}
             {settingsTab === 'display' && (
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Appearance</div>
@@ -933,7 +928,7 @@ export default function Dashboard({themeColor}) {
               </div>
             )}
 
-            {/* ---- ALERTS TAB ---- */}
+            {/* Alerts*/}
             {settingsTab === 'alerts' && (
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto' }}>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Notifications</div>

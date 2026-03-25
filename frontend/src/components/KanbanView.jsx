@@ -13,6 +13,7 @@ export default function KanbanView({
   refreshTrigger,
   searchQuery = "",
   onTasksChanged,
+  onAddTasks,
 }) {
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -387,9 +388,9 @@ export default function KanbanView({
               color: "var(--text-color, #2A2A2A)",
               cursor: "pointer",
             }}
-            onClick={createGroup}
+            onClick={() => onAddTasks?.()}
           >
-            <PlusOutlined /> New Group
+            <PlusOutlined /> Add Tasks
           </button>
           <button
             style={{
