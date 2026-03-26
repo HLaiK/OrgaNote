@@ -149,6 +149,8 @@ export default function TasksPanel({
     }
   };
 
+  const isTaskCompleted = (task) => task?.status === "completed" || task?.status === true;
+
   const isOverdueTask = (task) => {
     if (!task?.due_date) return false;
     if (task.status === "completed") return false;
@@ -259,18 +261,23 @@ export default function TasksPanel({
   }, [tasks, searchQuery, taskFilters, taskSort]);
 
   const groupedSections = useMemo(() => {
+    const sortGroupTasks = (groupTasks) =>
+      [...groupTasks].sort(
+        (a, b) => Number(isTaskCompleted(a)) - Number(isTaskCompleted(b)),
+      );
+
     const grouped = groups.map((group) => ({
       id: group.id,
       name: group.name,
       color: group.color,
-      tasks: filteredTasks.filter((task) => task.group_id === group.id),
+      tasks: sortGroupTasks(filteredTasks.filter((task) => task.group_id === group.id)),
     }));
 
     grouped.push({
       id: UNGROUPED_ID,
       name: "Ungrouped",
       color: "rgba(255,255,255,0.35)",
-      tasks: filteredTasks.filter((task) => !task.group_id),
+      tasks: sortGroupTasks(filteredTasks.filter((task) => !task.group_id)),
       readOnly: true,
     });
 
