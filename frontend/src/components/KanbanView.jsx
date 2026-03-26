@@ -413,6 +413,28 @@ export default function KanbanView({
     return map;
   }, [groups]);
 
+  const allCollapseKeys = useMemo(() => {
+    const keys = [];
+    columns.forEach((col) => {
+      groups.forEach((group) => {
+        keys.push(`${col.id}-${group.id}`);
+      });
+      keys.push(`${col.id}-${UNGROUPED_ID}`);
+    });
+    return keys;
+  }, [groups]);
+
+  const hasExpandedGroups = allCollapseKeys.some((key) => !collapsedGroups[key]);
+
+  const toggleAllGroups = () => {
+    const collapseAll = hasExpandedGroups;
+    const next = {};
+    allCollapseKeys.forEach((key) => {
+      next[key] = collapseAll;
+    });
+    setCollapsedGroups(next);
+  };
+
   if (loading) {
     return <div style={{ color: "var(--text-color, #2A2A2A)", padding: "20px" }}>Loading tasks...</div>;
   }
@@ -444,6 +466,23 @@ export default function KanbanView({
           Task Groups
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(255,255,255,0.2)",
+              border: "2px solid rgba(255,255,255,0.3)",
+              borderRadius: "8px",
+              padding: "6px 10px",
+              color: "var(--text-color, #2A2A2A)",
+              cursor: "pointer",
+            }}
+            onClick={toggleAllGroups}
+            title={hasExpandedGroups ? "Collapse all groups" : "Expand all groups"}
+          >
+            {hasExpandedGroups ? "Collapse All" : "Expand All"}
+          </button>
           <button
             style={{
               display: "flex",

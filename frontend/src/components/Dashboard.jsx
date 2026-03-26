@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ToolOutlined, CloseOutlined } from "@ant-design/icons";
+import { ToolOutlined, CloseOutlined, PictureOutlined } from "@ant-design/icons";
 import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
@@ -926,7 +926,7 @@ export default function Dashboard({themeColor}) {
                 {/* Background Image Upload */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>🖼️</div>
+                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}><PictureOutlined /></div>
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Background Image</div>
                       <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>PNG or GIF only — max ~4 MB</div>

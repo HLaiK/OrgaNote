@@ -120,6 +120,17 @@ export default function TasksPanel({
     return grouped;
   }, [groups, filteredTasks]);
 
+  const hasExpandedGroups = groupedSections.some((section) => !collapsedGroups[section.id]);
+
+  const toggleAllGroups = () => {
+    const collapseAll = hasExpandedGroups;
+    const next = {};
+    groupedSections.forEach((section) => {
+      next[section.id] = collapseAll;
+    });
+    setCollapsedGroups(next);
+  };
+
   const handleToggleComplete = async (taskId, currentStatus) => {
     try {
       const newStatus =
@@ -377,6 +388,13 @@ export default function TasksPanel({
       <div style={styles.groupToolbar}>
         <span style={styles.groupToolbarLabel}>Task Groups</span>
         <div style={styles.groupToolbarActions}>
+          <button
+            style={styles.groupAddButton}
+            onClick={toggleAllGroups}
+            title={hasExpandedGroups ? "Collapse all groups" : "Expand all groups"}
+          >
+            {hasExpandedGroups ? "Collapse All" : "Expand All"}
+          </button>
           <button style={styles.groupAddButton} onClick={() => onAddTasks?.()}>
             <PlusOutlined /> Add Tasks
           </button>
