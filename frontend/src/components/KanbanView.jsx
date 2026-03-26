@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DeleteOutlined,
   CloseOutlined,
@@ -41,6 +41,8 @@ export default function KanbanView({
   const [selectNewGroupInEditingTask, setSelectNewGroupInEditingTask] = useState(false);
   const [renamingGroup, setRenamingGroup] = useState(null);
   const [renameGroupName, setRenameGroupName] = useState("");
+  const [clearMenuOpen, setClearMenuOpen] = useState(false);
+  const clearMenuRef = useRef(null);
 
   const columns = [
     { id: "pending", title: "To Do", color: "var(--text-color, #2A2A2A)" },
@@ -52,6 +54,17 @@ export default function KanbanView({
   useEffect(() => {
     fetchAll();
   }, [refreshTrigger]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (clearMenuRef.current && !clearMenuRef.current.contains(event.target)) {
+        setClearMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   async function fetchAll() {
     setLoading(true);
@@ -94,6 +107,34 @@ export default function KanbanView({
     } catch (err) {
       console.error("Clear all tasks error:", err);
       alert("Failed to clear all tasks");
+    }
+  }
+
+  async function clearDoneTasks() {
+    const completedTasks = tasks.filter(
+      (task) => task.status === "completed" || task.status === true,
+    );
+
+    if (completedTasks.length === 0) {
+      alert("No completed tasks to clear.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? "" : "s"}?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await Promise.all(
+        completedTasks.map((task) => apiFetch(`/tasks/${task.id}`, { method: "DELETE" })),
+      );
+      const completedIds = new Set(completedTasks.map((task) => task.id));
+      setTasks((prev) => prev.filter((task) => !completedIds.has(task.id)));
+      onTasksChanged?.();
+    } catch (err) {
+      console.error("Clear done tasks error:", err);
+      alert("Failed to clear completed tasks");
     }
   }
 
@@ -634,23 +675,79 @@ export default function KanbanView({
           >
             <PlusOutlined /> Add Tasks
           </button>
-          <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "rgba(255,255,255,0.2)",
-              border: "2px solid rgba(255,255,255,0.3)",
-              borderRadius: "8px",
-              padding: "6px 10px",
-              color: "var(--text-color, #2A2A2A)",
-              cursor: "pointer",
-            }}
-            onClick={clearAllTasks}
-            title="Delete all tasks"
-          >
-            <DeleteOutlined /> Clear All Tasks
-          </button>
+          <div style={{ position: "relative" }} ref={clearMenuRef}>
+            <button
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "rgba(255,255,255,0.2)",
+                border: "2px solid rgba(255,255,255,0.3)",
+                borderRadius: "8px",
+                padding: "6px 10px",
+                color: "var(--text-color, #2A2A2A)",
+                cursor: "pointer",
+              }}
+              onClick={() => setClearMenuOpen((prev) => !prev)}
+              title="Clear tasks options"
+            >
+              <DeleteOutlined /> Clear
+            </button>
+            {clearMenuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  right: 0,
+                  minWidth: "170px",
+                  background: "rgba(40,40,40,0.9)",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  borderRadius: "8px",
+                  overflow: "hidden",
+                  zIndex: 20,
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.35)",
+                  backdropFilter: "blur(8px)",
+                }}
+              >
+                <button
+                  style={{
+                    width: "100%",
+                    background: "transparent",
+                    border: "none",
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    color: "rgba(255,255,255,0.95)",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                  }}
+                  onClick={async () => {
+                    setClearMenuOpen(false);
+                    await clearAllTasks();
+                  }}
+                >
+                  Clear all tasks
+                </button>
+                <button
+                  style={{
+                    width: "100%",
+                    background: "transparent",
+                    border: "none",
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    color: "rgba(255,255,255,0.95)",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                  }}
+                  onClick={async () => {
+                    setClearMenuOpen(false);
+                    await clearDoneTasks();
+                  }}
+                >
+                  Clear done tasks
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   EditOutlined,
   CheckOutlined,
@@ -41,6 +41,8 @@ export default function TasksPanel({
   const [dragOverGroupKey, setDragOverGroupKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [clearMenuOpen, setClearMenuOpen] = useState(false);
+  const clearMenuRef = useRef(null);
 
   const localDateTimeForInput = (value) => {
     if (!value) return "";
@@ -94,6 +96,17 @@ export default function TasksPanel({
   useEffect(() => {
     loadAll();
   }, [refreshTrigger]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (clearMenuRef.current && !clearMenuRef.current.contains(event.target)) {
+        setClearMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   const getPriorityValue = (task) => {
     if (task.priority === "high") return 3;
@@ -325,6 +338,36 @@ export default function TasksPanel({
     }
   };
 
+  const clearDoneTasks = async () => {
+    const completedTasks = tasks.filter(
+      (task) => task.status === "completed" || task.status === true,
+    );
+
+    if (completedTasks.length === 0) {
+      alert("No completed tasks to clear.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? "" : "s"}?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await Promise.all(
+        completedTasks.map((task) =>
+          apiFetch(`/tasks/${task.id}`, { method: "DELETE" }),
+        ),
+      );
+      const completedIds = new Set(completedTasks.map((task) => task.id));
+      setTasks((prev) => prev.filter((task) => !completedIds.has(task.id)));
+      onTasksChanged?.();
+    } catch (err) {
+      console.error("Error clearing completed tasks:", err);
+      alert("Failed to clear completed tasks");
+    }
+  };
+
   const openCreateGroupModal = (selectInEditingTask = false) => {
     setSelectNewGroupInEditingTask(selectInEditingTask);
     setNewGroupName("");
@@ -543,9 +586,37 @@ export default function TasksPanel({
           <button style={styles.groupAddButton} onClick={() => onAddTasks?.()}>
             <PlusOutlined /> Add Tasks
           </button>
-          <button style={styles.groupAddButton} onClick={clearAllTasks} title="Delete all tasks">
-            <DeleteOutlined /> Clear All Tasks
-          </button>
+          <div style={styles.clearMenuWrapper} ref={clearMenuRef}>
+            <button
+              style={styles.groupAddButton}
+              onClick={() => setClearMenuOpen((prev) => !prev)}
+              title="Clear tasks options"
+            >
+              <DeleteOutlined /> Clear
+            </button>
+            {clearMenuOpen && (
+              <div style={styles.clearMenu}>
+                <button
+                  style={styles.clearMenuItem}
+                  onClick={async () => {
+                    setClearMenuOpen(false);
+                    await clearAllTasks();
+                  }}
+                >
+                  Clear all tasks
+                </button>
+                <button
+                  style={styles.clearMenuItem}
+                  onClick={async () => {
+                    setClearMenuOpen(false);
+                    await clearDoneTasks();
+                  }}
+                >
+                  Clear done tasks
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1139,6 +1210,32 @@ const styles = {
     padding: "6px 10px",
     color: "var(--text-color, #2A2A2A)",
     cursor: "pointer",
+  },
+  clearMenuWrapper: {
+    position: "relative",
+  },
+  clearMenu: {
+    position: "absolute",
+    top: "calc(100% + 6px)",
+    right: 0,
+    minWidth: "170px",
+    background: "rgba(40,40,40,0.9)",
+    border: "1px solid rgba(255,255,255,0.25)",
+    borderRadius: "8px",
+    overflow: "hidden",
+    zIndex: 20,
+    boxShadow: "0 8px 20px rgba(0,0,0,0.35)",
+    backdropFilter: "blur(8px)",
+  },
+  clearMenuItem: {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    textAlign: "left",
+    padding: "10px 12px",
+    color: "rgba(255,255,255,0.95)",
+    cursor: "pointer",
+    fontSize: "0.85rem",
   },
   groupListContainer: {
     maxHeight: "60vh",
