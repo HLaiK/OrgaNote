@@ -108,7 +108,7 @@ const styles = {
     border: "none",
     fontSize: "1.2rem",
     cursor: "pointer",
-    color: "var(--text-color, rgba(255,255,255,0.7))",
+    color: "var(--text-color, rgba(165, 165, 165, 0.7))",
     padding: "4px 8px",
     transition: "color 0.2s",
   },

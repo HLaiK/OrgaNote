@@ -22,6 +22,8 @@ const TASK_REMINDER_OPTIONS = [
 export default function TasksPanel({
   refreshTrigger,
   searchQuery = "",
+  taskFilters,
+  taskSort,
   onTasksChanged,
   onAddTasks,
 }) {
@@ -93,13 +95,155 @@ export default function TasksPanel({
     loadAll();
   }, [refreshTrigger]);
 
-  const filteredTasks = useMemo(
-    () =>
-      tasks.filter((task) =>
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
-    [tasks, searchQuery],
-  );
+  const getPriorityValue = (task) => {
+    if (task.priority === "high") return 3;
+    if (task.priority === "medium") return 2;
+    if (task.priority === "low") return 1;
+    const parsed = Number(task.priority);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case "high":
+      case 3:
+        return "#E57373";
+      case "medium":
+      case 2:
+        return "#FFB74D";
+      case "low":
+      case 1:
+        return "#81C784";
+      default:
+        return "var(--btn-color, #A7C4A0)";
+    }
+  };
+
+  const getPriorityLabel = (priority) => {
+    if (!priority) return "";
+    switch (String(priority)) {
+      case "3":
+      case "high":
+        return "High";
+      case "2":
+      case "medium":
+        return "Medium";
+      case "1":
+      case "low":
+        return "Low";
+      default:
+        return String(priority);
+    }
+  };
+
+  const isOverdueTask = (task) => {
+    if (!task?.due_date) return false;
+    if (task.status === "completed") return false;
+    const due = new Date(task.due_date);
+    return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+  };
+
+  const filteredTasks = useMemo(() => {
+    const safeFilters = taskFilters || {
+      status: "all",
+      priority: "all",
+      category: "all",
+      dueDate: "any",
+    };
+    const safeSort = taskSort || { sortBy: "date-added", direction: "last" };
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const weekStart = new Date(dayStart);
+    weekStart.setDate(dayStart.getDate() - dayStart.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    let result = tasks.filter((task) =>
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+
+    if (safeFilters.status === "to-do") {
+      result = result.filter(
+        (task) => task.status !== "completed" && task.status !== "in-progress",
+      );
+    } else if (safeFilters.status === "in-progress") {
+      result = result.filter((task) => task.status === "in-progress");
+    } else if (safeFilters.status === "done") {
+      result = result.filter((task) => task.status === "completed");
+    } else if (safeFilters.status === "overdue") {
+      result = result.filter((task) => isOverdueTask(task));
+    }
+
+    if (safeFilters.priority !== "all") {
+      const target = safeFilters.priority === "high" ? 3 : safeFilters.priority === "medium" ? 2 : 1;
+      result = result.filter((task) => getPriorityValue(task) === target);
+    }
+
+    if (safeFilters.category === "ungrouped") {
+      result = result.filter((task) => !task.group_id);
+    } else if (safeFilters.category !== "all") {
+      const targetGroupId = Number(safeFilters.category);
+      result = result.filter((task) => Number(task.group_id) === targetGroupId);
+    }
+
+    if (safeFilters.dueDate === "today") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= dayStart && due < dayEnd;
+      });
+    } else if (safeFilters.dueDate === "this-week") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= weekStart && due < weekEnd;
+      });
+    } else if (safeFilters.dueDate === "this-month") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= monthStart && due < nextMonthStart;
+      });
+    } else if (safeFilters.dueDate === "past-due") {
+      result = result.filter((task) => isOverdueTask(task));
+    } else if (safeFilters.dueDate === "no-date") {
+      result = result.filter((task) => !task.due_date);
+    }
+
+    result.sort((a, b) => {
+      if (safeSort.sortBy === "due-date") {
+        const aDue = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+        const bDue = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+        return safeSort.direction === "desc" ? bDue - aDue : aDue - bDue;
+      }
+
+      if (safeSort.sortBy === "priority") {
+        const delta = getPriorityValue(b) - getPriorityValue(a);
+        return safeSort.direction === "low" ? -delta : delta;
+      }
+
+      if (safeSort.sortBy === "alpha") {
+        const delta = (a.title || "").localeCompare(b.title || "");
+        return safeSort.direction === "za" ? -delta : delta;
+      }
+
+      if (safeSort.sortBy === "modified") {
+        const aVal = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+        const bVal = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+        return safeSort.direction === "not-recent" ? aVal - bVal : bVal - aVal;
+      }
+
+      // date-added default
+      const aVal = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bVal = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return safeSort.direction === "first" ? aVal - bVal : bVal - aVal;
+    });
+
+    return result;
+  }, [tasks, searchQuery, taskFilters, taskSort]);
 
   const groupedSections = useMemo(() => {
     const grouped = groups.map((group) => ({
@@ -352,7 +496,7 @@ export default function TasksPanel({
         title: editingTask.title,
         description: editingTask.description,
         category: editingTask.category,
-        priority: editingTask.priority,
+        priority: editingTask.priority && editingTask.priority !== "" ? editingTask.priority : null,
         due_date: toApiDueDate(editingTask.due_date),
         reminder_offset_minutes: editingTask.due_date
           ? editingTask.reminder_offset_minutes ?? null
@@ -370,6 +514,7 @@ export default function TasksPanel({
       onTasksChanged?.();
     } catch (err) {
       console.error("Error editing task:", err);
+      alert("Failed to save task. Please try again.");
     }
   };
 
@@ -509,6 +654,64 @@ export default function TasksPanel({
                                 })}
                               </div>
                             )}
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "6px",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                fontSize: "0.7rem",
+                                marginTop: "8px",
+                              }}
+                            >
+                              {task.category && (
+                                <span
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    fontWeight: "600",
+                                    padding: "3px 8px",
+                                    borderRadius: "4px",
+                                    background: "rgba(255, 255, 255, 0.15)",
+                                    color: "var(--text-color, #2A2A2A)",
+                                    textTransform: "capitalize",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {task.category}
+                                </span>
+                              )}
+                              {task.priority && (
+                                <span
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    fontWeight: "600",
+                                    padding: "3px 8px",
+                                    borderRadius: "4px",
+                                    background: getPriorityColor(task.priority),
+                                    color: "#FFFFFF",
+                                    textTransform: "capitalize",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {getPriorityLabel(task.priority)}
+                                </span>
+                              )}
+                              {task.group_id && groups.length > 0 && (
+                                <span
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    fontWeight: "600",
+                                    padding: "3px 8px",
+                                    borderRadius: "4px",
+                                    background: "rgba(79,70,229,0.18)",
+                                    color: "var(--text-color, #2A2A2A)",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {groups.find((g) => g.id === task.group_id)?.name || "Group"}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div style={styles.actions}>
                             <button
@@ -604,7 +807,7 @@ export default function TasksPanel({
                   </button>
                 </div>
                 <select
-                  style={modalStyles.input}
+                  style={{ ...modalStyles.input, backgroundColor: "rgba(40,40,40,0.5)" }}
                   value={editingTask.group_id || ""}
                   onChange={(e) =>
                     handleEditChange(
@@ -643,11 +846,25 @@ export default function TasksPanel({
                 />
               </div>
 
+              <div>
+                <label style={modalStyles.label}>Priority</label>
+                <select
+                  style={{ ...modalStyles.input, backgroundColor: "rgba(40,40,40,0.5)" }}
+                  value={editingTask.priority || ""}
+                  onChange={(e) => handleEditChange("priority", e.target.value || null)}
+                >
+                  <option value="">No priority</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
               {editingTask.due_date && (
                 <div>
                   <label style={modalStyles.label}>Reminder</label>
                   <select
-                    style={modalStyles.input}
+                    style={{ ...modalStyles.input, backgroundColor: "rgba(40,40,40,0.5)" }}
                     value={editingTask.reminder_offset_minutes ?? ""}
                     onChange={(e) =>
                       handleEditChange(

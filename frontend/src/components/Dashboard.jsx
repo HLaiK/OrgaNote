@@ -37,7 +37,7 @@ const styles = {
     padding: "20px",
     border: `2px solid rgba(255,255,255,0.3)`,
     overflow: "hidden",
-    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)",
+    boxShadow: "0 4px 6px rgba(138, 138, 138, 0.5)",
     backdropFilter: "blur(5px)"
   },
 
@@ -229,6 +229,18 @@ export default function Dashboard({themeColor}) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [settingsTab, setSettingsTab] = useState('display');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [groupsForFilters, setGroupsForFilters] = useState([]);
+  const [taskFilters, setTaskFilters] = useState({
+    status: 'all',
+    priority: 'all',
+    category: 'all',
+    dueDate: 'any',
+  });
+  const [taskSort, setTaskSort] = useState({
+    sortBy: 'date-added',
+    direction: 'last',
+  });
   const [viewMode, setViewMode] = useState(() => {
     try {
       return localStorage.getItem('organote_viewMode') || 'list';
@@ -286,6 +298,64 @@ export default function Dashboard({themeColor}) {
     if (typeof window !== 'undefined') {
       window.alert(`${title}\n${body}`);
     }
+  };
+
+  useEffect(() => {
+    let active = true;
+    async function loadFilterGroups() {
+      try {
+        const groups = await apiFetch('/task-groups');
+        if (active) setGroupsForFilters(Array.isArray(groups) ? groups : []);
+      } catch (e) {
+        if (active) setGroupsForFilters([]);
+      }
+    }
+    loadFilterGroups();
+    return () => {
+      active = false;
+    };
+  }, [refreshTrigger]);
+
+  const filterCount = [
+    taskFilters.status !== 'all',
+    taskFilters.priority !== 'all',
+    taskFilters.category !== 'all',
+    taskFilters.dueDate !== 'any',
+  ].filter(Boolean).length;
+
+  const updateFilter = (key, value) => {
+    setTaskFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateSort = (key, value) => {
+    setTaskSort((prev) => ({ ...prev, [key]: value }));
+  };
+
+  useEffect(() => {
+    const allowedBySort = {
+      'due-date': ['asc', 'desc'],
+      priority: ['high', 'low'],
+      alpha: ['az', 'za'],
+      'date-added': ['first', 'last'],
+      modified: ['recent', 'not-recent'],
+    };
+    const allowed = allowedBySort[taskSort.sortBy] || ['first', 'last'];
+    if (!allowed.includes(taskSort.direction)) {
+      setTaskSort((prev) => ({ ...prev, direction: allowed[0] }));
+    }
+  }, [taskSort.sortBy, taskSort.direction]);
+
+  const resetFiltersAndSort = () => {
+    setTaskFilters({
+      status: 'all',
+      priority: 'all',
+      category: 'all',
+      dueDate: 'any',
+    });
+    setTaskSort({
+      sortBy: 'date-added',
+      direction: 'last',
+    });
   };
 
   useEffect(() => {
@@ -723,31 +793,165 @@ export default function Dashboard({themeColor}) {
               Kanban
             </button>
           </div>
-          <input
-            type="text"
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '6px',
-              padding: '6px 12px',
-              color: 'var(--text-color, #2A2A2A)',
-              fontSize: '0.9rem',
-              outline: 'none',
-              minWidth: '150px',
-              transition: 'all 0.2s',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            }}
-          />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                color: 'var(--text-color, #2A2A2A)',
+                fontSize: '0.9rem',
+                outline: 'none',
+                minWidth: '150px',
+                transition: 'all 0.2s',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              }}
+            />
+            <button
+              onClick={() => setShowFilters((prev) => !prev)}
+              style={{
+                border: '1px solid rgba(255, 255, 255, 0.22)',
+                background: filterCount > 0 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)',
+                color: 'var(--text-color, #2A2A2A)',
+                borderRadius: '6px',
+                fontSize: '0.85rem',
+                padding: '6px 10px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+              title="Open filters and sorting"
+            >
+              Filters{filterCount > 0 ? ` (${filterCount})` : ''}
+            </button>
+
+            {showFilters && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '40px',
+                  right: 0,
+                  width: '320px',
+                  maxWidth: '90vw',
+                  background: 'rgba(70, 70, 70, 0.49)',
+                  border: '1px solid rgba(255,255,255,0.22)',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  backdropFilter: 'blur(18px)',
+                  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.41)',
+                  zIndex: 40,
+                }}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Status</label>
+                    <select value={taskFilters.status} onChange={(e) => updateFilter('status', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                      <option value="all">All</option>
+                      <option value="to-do">To Do</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="done">Done</option>
+                      <option value="overdue">Overdue</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Priority</label>
+                    <select value={taskFilters.priority} onChange={(e) => updateFilter('priority', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                      <option value="all">All</option>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Category</label>
+                    <select value={taskFilters.category} onChange={(e) => updateFilter('category', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                      <option value="all">All</option>
+                      <option value="ungrouped">Ungrouped</option>
+                      {groupsForFilters.map((group) => (
+                        <option key={group.id} value={String(group.id)}>{group.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Due Date</label>
+                    <select value={taskFilters.dueDate} onChange={(e) => updateFilter('dueDate', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                      <option value="any">Anytime</option>
+                      <option value="today">Today</option>
+                      <option value="this-week">This Week</option>
+                      <option value="this-month">This Month</option>
+                      <option value="past-due">Past Due</option>
+                      <option value="no-date">No Date</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Sort By</label>
+                    <select value={taskSort.sortBy} onChange={(e) => updateSort('sortBy', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                      <option value="due-date">Due Date</option>
+                      <option value="priority">Priority</option>
+                      <option value="alpha">Alphabetical</option>
+                      <option value="date-added">Date Added</option>
+                      <option value="modified">Modification</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Order</label>
+                    <select value={taskSort.direction} onChange={(e) => updateSort('direction', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                      {taskSort.sortBy === 'due-date' && (
+                        <>
+                          <option value="asc">Ascending</option>
+                          <option value="desc">Descending</option>
+                        </>
+                      )}
+                      {taskSort.sortBy === 'priority' && (
+                        <>
+                          <option value="high">High to Low</option>
+                          <option value="low">Low to High</option>
+                        </>
+                      )}
+                      {taskSort.sortBy === 'alpha' && (
+                        <>
+                          <option value="az">A-Z</option>
+                          <option value="za">Z-A</option>
+                        </>
+                      )}
+                      {taskSort.sortBy === 'date-added' && (
+                        <>
+                          <option value="first">First</option>
+                          <option value="last">Last</option>
+                        </>
+                      )}
+                      {taskSort.sortBy === 'modified' && (
+                        <>
+                          <option value="recent">Recent</option>
+                          <option value="not-recent">Not Recent</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', gap: '8px' }}>
+                  <button onClick={resetFiltersAndSort} style={{ flex: 1, padding: '7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.12)', color: 'var(--text-color, white)', cursor: 'pointer' }}>
+                    Reset
+                  </button>
+                  <button onClick={() => setShowFilters(false)} style={{ flex: 1, padding: '7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.24)', background: 'rgba(255,255,255,0.2)', color: 'var(--text-color, white)', cursor: 'pointer' }}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Conditional View Rendering */}
@@ -756,6 +960,8 @@ export default function Dashboard({themeColor}) {
             <TasksPanel
               refreshTrigger={refreshTrigger}
               searchQuery={searchQuery}
+              taskFilters={taskFilters}
+              taskSort={taskSort}
               onTasksChanged={handleTasksChanged}
               onAddTasks={() => setShowAddTask(true)}
             />
@@ -763,6 +969,8 @@ export default function Dashboard({themeColor}) {
             <KanbanView
               refreshTrigger={refreshTrigger}
               searchQuery={searchQuery}
+              taskFilters={taskFilters}
+              taskSort={taskSort}
               onTasksChanged={handleTasksChanged}
               onAddTasks={() => setShowAddTask(true)}
             />

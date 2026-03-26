@@ -21,6 +21,8 @@ const TASK_REMINDER_OPTIONS = [
 export default function KanbanView({
   refreshTrigger,
   searchQuery = "",
+  taskFilters,
+  taskSort,
   onTasksChanged,
   onAddTasks,
 }) {
@@ -210,6 +212,7 @@ export default function KanbanView({
             ? editingTask.reminder_offset_minutes ?? null
             : null,
           group_id: editingTask.group_id || null,
+          priority: editingTask.priority && editingTask.priority !== "" ? editingTask.priority : null,
         },
       });
       setTasks((prev) => prev.map((task) => (task.id === updated.id ? updated : task)));
@@ -217,6 +220,7 @@ export default function KanbanView({
       onTasksChanged?.();
     } catch (err) {
       console.error("Update error:", err);
+      alert("Failed to save task. Please try again.");
     }
   };
 
@@ -239,10 +243,124 @@ export default function KanbanView({
     }
   };
 
-  const getTasksByStatus = (status) => {
-    return tasks.filter(
-      (task) => task.status === status && task.title.toLowerCase().includes(searchQuery.toLowerCase()),
+  const getPriorityValue = (task) => {
+    if (task.priority === "high") return 3;
+    if (task.priority === "medium") return 2;
+    if (task.priority === "low") return 1;
+    const parsed = Number(task.priority);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const isOverdueTask = (task) => {
+    if (!task?.due_date) return false;
+    if (task.status === "completed") return false;
+    const due = new Date(task.due_date);
+    return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+  };
+
+  const processedTasks = useMemo(() => {
+    const safeFilters = taskFilters || {
+      status: "all",
+      priority: "all",
+      category: "all",
+      dueDate: "any",
+    };
+    const safeSort = taskSort || { sortBy: "date-added", direction: "last" };
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const weekStart = new Date(dayStart);
+    weekStart.setDate(dayStart.getDate() - dayStart.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    let result = tasks.filter((task) =>
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()),
     );
+
+    if (safeFilters.status === "to-do") {
+      result = result.filter(
+        (task) => task.status !== "completed" && task.status !== "in-progress",
+      );
+    } else if (safeFilters.status === "in-progress") {
+      result = result.filter((task) => task.status === "in-progress");
+    } else if (safeFilters.status === "done") {
+      result = result.filter((task) => task.status === "completed");
+    } else if (safeFilters.status === "overdue") {
+      result = result.filter((task) => isOverdueTask(task));
+    }
+
+    if (safeFilters.priority !== "all") {
+      const target = safeFilters.priority === "high" ? 3 : safeFilters.priority === "medium" ? 2 : 1;
+      result = result.filter((task) => getPriorityValue(task) === target);
+    }
+
+    if (safeFilters.category === "ungrouped") {
+      result = result.filter((task) => !task.group_id);
+    } else if (safeFilters.category !== "all") {
+      const targetGroupId = Number(safeFilters.category);
+      result = result.filter((task) => Number(task.group_id) === targetGroupId);
+    }
+
+    if (safeFilters.dueDate === "today") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= dayStart && due < dayEnd;
+      });
+    } else if (safeFilters.dueDate === "this-week") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= weekStart && due < weekEnd;
+      });
+    } else if (safeFilters.dueDate === "this-month") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= monthStart && due < nextMonthStart;
+      });
+    } else if (safeFilters.dueDate === "past-due") {
+      result = result.filter((task) => isOverdueTask(task));
+    } else if (safeFilters.dueDate === "no-date") {
+      result = result.filter((task) => !task.due_date);
+    }
+
+    result.sort((a, b) => {
+      if (safeSort.sortBy === "due-date") {
+        const aDue = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+        const bDue = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+        return safeSort.direction === "desc" ? bDue - aDue : aDue - bDue;
+      }
+
+      if (safeSort.sortBy === "priority") {
+        const delta = getPriorityValue(b) - getPriorityValue(a);
+        return safeSort.direction === "low" ? -delta : delta;
+      }
+
+      if (safeSort.sortBy === "alpha") {
+        const delta = (a.title || "").localeCompare(b.title || "");
+        return safeSort.direction === "za" ? -delta : delta;
+      }
+
+      if (safeSort.sortBy === "modified") {
+        const aVal = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+        const bVal = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+        return safeSort.direction === "not-recent" ? aVal - bVal : bVal - aVal;
+      }
+
+      const aVal = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bVal = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return safeSort.direction === "first" ? aVal - bVal : bVal - aVal;
+    });
+
+    return result;
+  }, [tasks, searchQuery, taskFilters, taskSort]);
+
+  const getTasksByStatus = (status) => {
+    return processedTasks.filter((task) => task.status === status);
   };
 
   const getGroupedSectionsByStatus = (status) => {
@@ -278,6 +396,23 @@ export default function KanbanView({
         return "#81C784";
       default:
         return "var(--btn-color, #A7C4A0)";
+    }
+  };
+
+  const getPriorityLabel = (priority) => {
+    if (!priority) return "";
+    switch (String(priority)) {
+      case "3":
+      case "high":
+        return "High";
+      case "2":
+      case "medium":
+        return "Medium";
+      case "1":
+      case "low":
+        return "Low";
+      default:
+        return String(priority);
     }
   };
 
@@ -807,20 +942,22 @@ export default function KanbanView({
                                 fontSize: "0.7rem",
                               }}
                             >
-                              <span
-                                style={{
-                                  fontSize: "0.7rem",
-                                  fontWeight: "600",
-                                  padding: "3px 8px",
-                                  borderRadius: "4px",
-                                  background: "rgba(255, 255, 255, 0.15)",
-                                  color: "var(--text-color, #2A2A2A)",
-                                  textTransform: "capitalize",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {task.category || "no category"}
-                              </span>
+                              {task.category && (
+                                <span
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    fontWeight: "600",
+                                    padding: "3px 8px",
+                                    borderRadius: "4px",
+                                    background: "rgba(255, 255, 255, 0.15)",
+                                    color: "var(--text-color, #2A2A2A)",
+                                    textTransform: "capitalize",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {task.category}
+                                </span>
+                              )}
 
                               {task.priority && (
                                 <span
@@ -835,7 +972,7 @@ export default function KanbanView({
                                     whiteSpace: "nowrap",
                                   }}
                                 >
-                                  {task.priority}
+                                  {getPriorityLabel(task.priority)}
                                 </span>
                               )}
 
@@ -989,7 +1126,7 @@ export default function KanbanView({
                     borderRadius: "8px",
                     fontSize: "0.95rem",
                     boxSizing: "border-box",
-                    backgroundColor: "rgba(255,255,255,0.1)",
+                    backgroundColor: "rgba(40,40,40,0.5)",
                     color: "var(--text-color, white)",
                     fontFamily: "inherit",
                     backdropFilter: "blur(5px)",
@@ -1036,6 +1173,33 @@ export default function KanbanView({
                 />
               </div>
 
+              <div>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "var(--text-color, rgba(255,255,255,0.9))" }}>
+                  Priority
+                </label>
+                <select
+                  value={editingTask.priority || ""}
+                  onChange={(e) => handleEditChange("priority", e.target.value || null)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "2px solid rgba(255,255,255,0.3)",
+                    borderRadius: "8px",
+                    fontSize: "0.95rem",
+                    boxSizing: "border-box",
+                    backgroundColor: "rgba(40,40,40,0.5)",
+                    color: "var(--text-color, white)",
+                    fontFamily: "inherit",
+                    backdropFilter: "blur(5px)",
+                  }}
+                >
+                  <option value="">No priority</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
               {editingTask.due_date && (
                 <div>
                   <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "var(--text-color, rgba(255,255,255,0.9))" }}>
@@ -1056,7 +1220,7 @@ export default function KanbanView({
                       borderRadius: "8px",
                       fontSize: "0.95rem",
                       boxSizing: "border-box",
-                      backgroundColor: "rgba(255,255,255,0.1)",
+                      backgroundColor: "rgba(40,40,40,0.5)",
                       color: "var(--text-color, white)",
                       fontFamily: "inherit",
                       backdropFilter: "blur(5px)",
