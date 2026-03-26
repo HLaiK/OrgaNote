@@ -30,6 +30,7 @@ export default function KanbanView({
   const [error, setError] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [groupDragOver, setGroupDragOver] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -94,14 +95,25 @@ export default function KanbanView({
     }
   }
 
-  async function updateTaskStatus(taskId, newStatus) {
+  async function updateTaskStatus(taskId, newStatus, nextGroupId) {
     try {
       await apiFetch(`/tasks/${taskId}`, {
         method: "PUT",
-        body: { status: newStatus },
+        body: {
+          status: newStatus,
+          ...(nextGroupId !== undefined ? { group_id: nextGroupId } : {}),
+        },
       });
       setTasks((prev) =>
-        prev.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task)),
+        prev.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                status: newStatus,
+                ...(nextGroupId !== undefined ? { group_id: nextGroupId } : {}),
+              }
+            : task,
+        ),
       );
       onTasksChanged?.();
     } catch (err) {
@@ -109,8 +121,8 @@ export default function KanbanView({
     }
   }
 
-  const handleDragStart = (e, taskId, fromStatus) => {
-    setDragging({ taskId, fromStatus });
+  const handleDragStart = (e, taskId, fromStatus, fromGroupId) => {
+    setDragging({ taskId, fromStatus, fromGroupId: fromGroupId ?? null });
     e.dataTransfer.effectAllowed = "move";
   };
 
@@ -118,18 +130,53 @@ export default function KanbanView({
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOver(colId);
+    setGroupDragOver(null);
+  };
+
+  const handleGroupDragOver = (e, statusId, groupId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOver(statusId);
+    setGroupDragOver(`${statusId}-${groupId}`);
   };
 
   const handleDrop = async (e, toStatus) => {
     e.preventDefault();
-    if (!dragging || dragging.fromStatus === toStatus) {
+    if (!dragging) {
       setDragging(null);
       setDragOver(null);
+      setGroupDragOver(null);
       return;
     }
+
+    if (dragging.fromStatus === toStatus) {
+      setDragging(null);
+      setDragOver(null);
+      setGroupDragOver(null);
+      return;
+    }
+
     await updateTaskStatus(dragging.taskId, toStatus);
     setDragging(null);
     setDragOver(null);
+    setGroupDragOver(null);
+  };
+
+  const handleGroupDrop = async (e, statusId, groupId) => {
+    e.preventDefault();
+    if (!dragging) return;
+
+    const nextGroupId = groupId === UNGROUPED_ID ? null : groupId;
+    const noChange =
+      dragging.fromStatus === statusId &&
+      (dragging.fromGroupId ?? null) === (nextGroupId ?? null);
+
+    setDragging(null);
+    setDragOver(null);
+    setGroupDragOver(null);
+
+    if (noChange) return;
+    await updateTaskStatus(dragging.taskId, statusId, nextGroupId);
   };
 
   const handleEdit = (task) => {
@@ -530,15 +577,26 @@ export default function KanbanView({
                 </div>
               ) : (
                 getGroupedSectionsByStatus(col.id).map((section) => {
-                  if (section.tasks.length === 0 && section.id === UNGROUPED_ID) {
-                    return null;
-                  }
-
                   const collapseKey = `${col.id}-${section.id}`;
                   const isCollapsed = !!collapsedGroups[collapseKey];
+                  const isGroupDropTarget = groupDragOver === `${col.id}-${section.id}`;
 
                   return (
-                    <div key={section.id} style={{ border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", padding: "8px" }}>
+                    <div
+                      key={section.id}
+                      style={{
+                        border: isGroupDropTarget
+                          ? "1px solid rgba(255,255,255,0.55)"
+                          : "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: "8px",
+                        padding: "8px",
+                        background: isGroupDropTarget
+                          ? "rgba(255,255,255,0.08)"
+                          : "transparent",
+                      }}
+                      onDragOver={(e) => handleGroupDragOver(e, col.id, section.id)}
+                      onDrop={(e) => handleGroupDrop(e, col.id, section.id)}
+                    >
                       <div
                         style={{
                           display: "flex",
@@ -597,11 +655,28 @@ export default function KanbanView({
                       </div>
 
                       {!isCollapsed &&
-                        section.tasks.map((task) => (
+                        (section.tasks.length === 0 ? (
+                          <div
+                            style={{
+                              textAlign: "center",
+                              color: "var(--text-color, rgba(42, 42, 42, 0.55))",
+                              fontSize: "0.75rem",
+                              fontStyle: "italic",
+                              padding: "10px 4px",
+                            }}
+                          >
+                            Drop task here
+                          </div>
+                        ) : section.tasks.map((task) => (
                           <div
                             key={task.id}
                             draggable
-                            onDragStart={(e) => handleDragStart(e, task.id, task.status)}
+                            onDragStart={(e) => handleDragStart(e, task.id, task.status, task.group_id)}
+                            onDragEnd={() => {
+                              setDragging(null);
+                              setDragOver(null);
+                              setGroupDragOver(null);
+                            }}
                             style={{
                               background: getCategoryBg(task.category),
                               border: `2px solid rgba(255, 255, 255, 0.15)`,
@@ -757,7 +832,7 @@ export default function KanbanView({
                               )}
                             </div>
                           </div>
-                        ))}
+                        )))}
                     </div>
                   );
                 })

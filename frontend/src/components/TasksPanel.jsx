@@ -35,6 +35,8 @@ export default function TasksPanel({
   const [selectNewGroupInEditingTask, setSelectNewGroupInEditingTask] = useState(false);
   const [renamingGroup, setRenamingGroup] = useState(null);
   const [renameGroupName, setRenameGroupName] = useState("");
+  const [draggingTaskId, setDraggingTaskId] = useState(null);
+  const [dragOverGroupKey, setDragOverGroupKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -276,6 +278,54 @@ export default function TasksPanel({
     setCollapsedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
   };
 
+  const moveTaskToGroup = async (taskId, nextGroupId) => {
+    try {
+      await apiFetch(`/tasks/${taskId}`, {
+        method: "PUT",
+        body: { group_id: nextGroupId },
+      });
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId ? { ...task, group_id: nextGroupId } : task,
+        ),
+      );
+      onTasksChanged?.();
+    } catch (err) {
+      console.error("Error moving task to group:", err);
+    }
+  };
+
+  const handleTaskDragStart = (e, taskId) => {
+    setDraggingTaskId(taskId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleTaskDragEnd = () => {
+    setDraggingTaskId(null);
+    setDragOverGroupKey(null);
+  };
+
+  const handleGroupDragOver = (e, groupKey) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverGroupKey(groupKey);
+  };
+
+  const handleGroupDrop = async (e, targetGroupKey) => {
+    e.preventDefault();
+    if (!draggingTaskId) return;
+
+    const task = tasks.find((t) => t.id === draggingTaskId);
+    const nextGroupId = targetGroupKey === UNGROUPED_ID ? null : targetGroupKey;
+    const currentGroupId = task?.group_id ?? null;
+
+    setDragOverGroupKey(null);
+    setDraggingTaskId(null);
+
+    if (!task || currentGroupId === nextGroupId) return;
+    await moveTaskToGroup(draggingTaskId, nextGroupId);
+  };
+
   const handleEdit = (task) => {
     setEditingTask({ ...task, group_id: task.group_id ?? null });
   };
@@ -341,13 +391,24 @@ export default function TasksPanel({
           <div style={styles.emptyText}>No tasks yet. Add some using the input below!</div>
         ) : (
           groupedSections.map((section) => {
-            if (section.tasks.length === 0 && section.id === UNGROUPED_ID) {
-              return null;
-            }
-
             const isCollapsed = !!collapsedGroups[section.id];
             return (
-              <div key={section.id} style={styles.groupSection}>
+              <div
+                key={section.id}
+                style={{
+                  ...styles.groupSection,
+                  border:
+                    dragOverGroupKey === section.id
+                      ? "1px solid rgba(255,255,255,0.55)"
+                      : "1px solid rgba(255,255,255,.15)",
+                  background:
+                    dragOverGroupKey === section.id
+                      ? "rgba(255,255,255,0.08)"
+                      : styles.groupSection.background,
+                }}
+                onDragOver={(e) => handleGroupDragOver(e, section.id)}
+                onDrop={(e) => handleGroupDrop(e, section.id)}
+              >
                 <div
                   style={{ ...styles.groupHeader, borderLeft: `4px solid ${section.color}` }}
                 >
@@ -391,8 +452,25 @@ export default function TasksPanel({
 
                 {!isCollapsed && (
                   <ul style={styles.list}>
-                    {section.tasks.map((task) => (
-                      <li key={task.id} style={styles.item}>
+                    {section.tasks.length === 0 ? (
+                      <li
+                        style={{
+                          ...styles.item,
+                          justifyContent: "center",
+                          color: "rgba(255,255,255,0.55)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        Drop task here
+                      </li>
+                    ) : section.tasks.map((task) => (
+                      <li
+                        key={task.id}
+                        style={{ ...styles.item, cursor: "grab", opacity: draggingTaskId === task.id ? 0.6 : 1 }}
+                        draggable
+                        onDragStart={(e) => handleTaskDragStart(e, task.id)}
+                        onDragEnd={handleTaskDragEnd}
+                      >
                         <div style={styles.itemContent}>
                           <div style={styles.taskInfo}>
                             <div
