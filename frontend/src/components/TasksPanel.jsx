@@ -43,6 +43,7 @@ export default function TasksPanel({
   const [error, setError] = useState(null);
   const [clearMenuOpen, setClearMenuOpen] = useState(false);
   const clearMenuRef = useRef(null);
+  const groupListRef = useRef(null);
 
   const localDateTimeForInput = (value) => {
     if (!value) return "";
@@ -510,9 +511,30 @@ export default function TasksPanel({
     setDragOverGroupKey(null);
   };
 
+  const autoScrollGroupList = (clientY) => {
+    const container = groupListRef.current;
+    if (!container) return;
+
+    const bounds = container.getBoundingClientRect();
+    const threshold = 70;
+    const maxStep = 18;
+
+    if (clientY < bounds.top + threshold) {
+      const intensity = Math.max(0, (bounds.top + threshold - clientY) / threshold);
+      container.scrollTop -= Math.ceil(maxStep * intensity);
+      return;
+    }
+
+    if (clientY > bounds.bottom - threshold) {
+      const intensity = Math.max(0, (clientY - (bounds.bottom - threshold)) / threshold);
+      container.scrollTop += Math.ceil(maxStep * intensity);
+    }
+  };
+
   const handleGroupDragOver = (e, groupKey) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    autoScrollGroupList(e.clientY);
     setDragOverGroupKey(groupKey);
   };
 
@@ -627,7 +649,11 @@ export default function TasksPanel({
         </div>
       </div>
 
-      <div style={styles.groupListContainer}>
+      <div
+        ref={groupListRef}
+        style={styles.groupListContainer}
+        onDragOver={(e) => autoScrollGroupList(e.clientY)}
+      >
         {groupedSections.every((section) => section.tasks.length === 0) ? (
           <div style={styles.emptyText}>No tasks yet. Add some using the input below!</div>
         ) : (
@@ -827,13 +853,14 @@ export default function TasksPanel({
 
       {editingTask && (
         <div style={modalStyles.overlay} onClick={cancelEdit}>
-          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+          <div style={modalStyles.editModal} onClick={(e) => e.stopPropagation()}>
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: 24,
+                flexShrink: 0,
               }}
             >
               <h3 style={modalStyles.title}>Edit Task</h3>
@@ -855,14 +882,7 @@ export default function TasksPanel({
               </button>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "16px",
-                marginBottom: "24px",
-              }}
-            >
+            <div style={modalStyles.editBody}>
               <div>
                 <label style={modalStyles.label}>Title</label>
                 <input
@@ -961,7 +981,7 @@ export default function TasksPanel({
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div style={{ display: "flex", gap: "12px", flexShrink: 0, marginTop: "20px" }}>
               <button
                 style={modalStyles.saveBtn}
                 onClick={submitEdit}
@@ -1411,6 +1431,8 @@ const modalStyles = {
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2000,
+    padding: "16px",
+    boxSizing: "border-box",
   },
   modal: {
     border: "2px solid rgba(255,255,255,0.4)",
@@ -1419,6 +1441,27 @@ const modalStyles = {
     maxWidth: "500px",
     width: "90%",
     backdropFilter: "blur(10px)",
+  },
+  editModal: {
+    border: "2px solid rgba(255,255,255,0.4)",
+    borderRadius: "12px",
+    padding: "24px",
+    maxWidth: "460px",
+    width: "100%",
+    maxHeight: "85vh",
+    backdropFilter: "blur(10px)",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    boxSizing: "border-box",
+  },
+  editBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+    overflowY: "auto",
+    paddingRight: "6px",
+    marginBottom: "4px",
   },
   title: {
     margin: 0,

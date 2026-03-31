@@ -43,6 +43,7 @@ export default function KanbanView({
   const [renameGroupName, setRenameGroupName] = useState("");
   const [clearMenuOpen, setClearMenuOpen] = useState(false);
   const clearMenuRef = useRef(null);
+  const boardRef = useRef(null);
 
   const columns = [
     { id: "pending", title: "To Do", color: "var(--text-color, #2A2A2A)" },
@@ -169,9 +170,35 @@ export default function KanbanView({
     e.dataTransfer.effectAllowed = "move";
   };
 
+  const autoScrollBoard = (clientX, clientY) => {
+    const board = boardRef.current;
+    if (!board) return;
+
+    const bounds = board.getBoundingClientRect();
+    const threshold = 70;
+    const maxStep = 18;
+
+    if (clientY < bounds.top + threshold) {
+      const intensity = Math.max(0, (bounds.top + threshold - clientY) / threshold);
+      board.scrollTop -= Math.ceil(maxStep * intensity);
+    } else if (clientY > bounds.bottom - threshold) {
+      const intensity = Math.max(0, (clientY - (bounds.bottom - threshold)) / threshold);
+      board.scrollTop += Math.ceil(maxStep * intensity);
+    }
+
+    if (clientX < bounds.left + threshold) {
+      const intensity = Math.max(0, (bounds.left + threshold - clientX) / threshold);
+      board.scrollLeft -= Math.ceil(maxStep * intensity);
+    } else if (clientX > bounds.right - threshold) {
+      const intensity = Math.max(0, (clientX - (bounds.right - threshold)) / threshold);
+      board.scrollLeft += Math.ceil(maxStep * intensity);
+    }
+  };
+
   const handleDragOver = (e, colId) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    autoScrollBoard(e.clientX, e.clientY);
     setDragOver(colId);
     setGroupDragOver(null);
   };
@@ -179,6 +206,7 @@ export default function KanbanView({
   const handleGroupDragOver = (e, statusId, groupId) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    autoScrollBoard(e.clientX, e.clientY);
     setDragOver(statusId);
     setGroupDragOver(`${statusId}-${groupId}`);
   };
@@ -422,6 +450,11 @@ export default function KanbanView({
     });
 
     return sections;
+  };
+
+  const getVisibleGroupedSectionsByStatus = (status) => {
+    const sections = getGroupedSectionsByStatus(status);
+    return sections.filter((section) => section.tasks.length > 0);
   };
 
   const getPriorityColor = (priority) => {
@@ -753,6 +786,8 @@ export default function KanbanView({
 
       <div
         className="kanban-board"
+        ref={boardRef}
+        onDragOver={(e) => autoScrollBoard(e.clientX, e.clientY)}
         style={{
           display: "flex",
           alignItems: "flex-start",
@@ -835,7 +870,7 @@ export default function KanbanView({
             </div>
 
             <div className="kanban-column" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {getGroupedSectionsByStatus(col.id).every((section) => section.tasks.length === 0) ? (
+              {getVisibleGroupedSectionsByStatus(col.id).length === 0 ? (
                 <div
                   style={{
                     textAlign: "center",
@@ -847,7 +882,7 @@ export default function KanbanView({
                   No tasks
                 </div>
               ) : (
-                getGroupedSectionsByStatus(col.id).map((section) => {
+                getVisibleGroupedSectionsByStatus(col.id).map((section) => {
                   const collapseKey = `${col.id}-${section.id}`;
                   const isCollapsed = !!collapsedGroups[collapseKey];
                   const isGroupDropTarget = groupDragOver === `${col.id}-${section.id}`;
@@ -1128,6 +1163,8 @@ export default function KanbanView({
             alignItems: "center",
             justifyContent: "center",
             zIndex: 1000,
+            padding: "16px",
+            boxSizing: "border-box",
           }}
           onClick={cancelEdit}
         >
@@ -1135,14 +1172,19 @@ export default function KanbanView({
             style={{
               border: "2px solid rgba(255,255,255,0.4)",
               borderRadius: "12px",
-              padding: "30px",
-              maxWidth: "500px",
-              width: "90%",
+              padding: "24px",
+              maxWidth: "460px",
+              width: "100%",
+              maxHeight: "85vh",
               backdropFilter: "blur(10px)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              boxSizing: "border-box",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexShrink: 0 }}>
               <h3 style={{ margin: 0, fontSize: "1.8rem", fontWeight: "bold", color: "var(--text-color, white)", fontStyle: "italic" }}>Edit Task</h3>
               <button
                 onClick={cancelEdit}
@@ -1162,7 +1204,7 @@ export default function KanbanView({
               </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "24px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", overflowY: "auto", paddingRight: "6px", marginBottom: "4px" }}>
               <div>
                 <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "0.95rem", color: "var(--text-color, rgba(255,255,255,0.9))" }}>
                   Title
@@ -1333,7 +1375,7 @@ export default function KanbanView({
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div style={{ display: "flex", gap: "12px", flexShrink: 0, marginTop: "20px" }}>
               <button
                 onClick={submitEdit}
                 style={{
