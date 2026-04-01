@@ -995,6 +995,7 @@ export default function Dashboard({themeColor}) {
             <CalendarView
               refreshTrigger={refreshTrigger}
               searchQuery={searchQuery}
+              taskFilters={taskFilters}
               onTasksChanged={handleTasksChanged}
             />
           )}

@@ -18,6 +18,40 @@ function ensureReminderColumn() {
   return ensureReminderColumnPromise;
 }
 
+function normalizePriority(priority) {
+  if (priority == null || priority === "") return null;
+  if (typeof priority === "number") return priority;
+
+  const value = String(priority).toLowerCase().trim();
+  const map = {
+    low: 1,
+    medium: 2,
+    high: 3,
+  };
+
+  if (Object.prototype.hasOwnProperty.call(map, value)) {
+    return map[value];
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function serializeTask(row) {
+  if (!row) return row;
+  const map = {
+    1: "low",
+    2: "medium",
+    3: "high",
+  };
+
+  const priorityLabel = map[row.priority];
+  return {
+    ...row,
+    priority: priorityLabel || row.priority,
+  };
+}
+
 // GET all tasks for a specific user
 router.get("/", async (req, res) => {
   const userId = req.headers["x-user-id"];
@@ -27,7 +61,7 @@ router.get("/", async (req, res) => {
       "SELECT * FROM tasks WHERE user_id = $1 ORDER BY id ASC",
       [userId],
     );
-    res.json(result.rows);
+    res.json(result.rows.map(serializeTask));
   } catch (err) {
     console.error("Error fetching tasks:", err);
     res.status(500).json({ error: "Failed to fetch tasks" });
@@ -48,7 +82,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    res.json(result.rows[0]);
+    res.json(serializeTask(result.rows[0]));
   } catch (err) {
     console.error("Error fetching task:", err);
     res.status(500).json({ error: "Failed to fetch task" });
@@ -70,6 +104,7 @@ router.post("/", async (req, res) => {
 
   try {
     await ensureReminderColumn();
+    const normalizedPriority = normalizePriority(priority);
     const result = await pool.query(
       `INSERT INTO tasks (title, description, category, priority, due_date, reminder_offset_minutes, user_id, group_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -78,7 +113,7 @@ router.post("/", async (req, res) => {
         title,
         description ?? null,
         category ?? null,
-        priority ?? null,
+        normalizedPriority,
         due_date ?? null,
         due_date ? (reminder_offset_minutes ?? null) : null,
         userId,
@@ -86,7 +121,7 @@ router.post("/", async (req, res) => {
       ],
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(serializeTask(result.rows[0]));
   } catch (err) {
     console.error("Error creating task:", err);
     res.status(500).json({ error: "Failed to create task" });
@@ -115,6 +150,7 @@ router.put("/:id", async (req, res) => {
 
   try {
     await ensureReminderColumn();
+    const normalizedPriority = normalizePriority(priority);
     const result = await pool.query(
       `UPDATE tasks
        SET title = COALESCE($1, title),
@@ -136,7 +172,7 @@ router.put("/:id", async (req, res) => {
         title,
         description,
         category,
-        priority,
+        normalizedPriority,
         hasDueDate,
         due_date,
         status,
@@ -153,7 +189,7 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    res.json(result.rows[0]);
+    res.json(serializeTask(result.rows[0]));
   } catch (err) {
     console.error("Error updating task:", err);
     res.status(500).json({ error: "Failed to update task" });

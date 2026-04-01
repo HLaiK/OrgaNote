@@ -16,6 +16,7 @@ const TASK_REMINDER_OPTIONS = [
   { value: "30", label: "30 minutes before" },
   { value: "60", label: "1 hour before" },
   { value: "1440", label: "1 day before" },
+  { value: "10080", label: "1 week before" },
 ];
 
 export default function KanbanView({

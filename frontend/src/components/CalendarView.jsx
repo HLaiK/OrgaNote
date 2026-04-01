@@ -19,6 +19,17 @@ const PRIORITY_BADGE_STATUS = {
   low: "success",
 };
 
+const TASK_REMINDER_OPTIONS = [
+  { value: "", label: "No reminder" },
+  { value: "0", label: "At due time" },
+  { value: "5", label: "5 minutes before" },
+  { value: "15", label: "15 minutes before" },
+  { value: "30", label: "30 minutes before" },
+  { value: "60", label: "1 hour before" },
+  { value: "1440", label: "1 day before" },
+  { value: "10080", label: "1 week before" },
+];
+
 function dateKeyFromDate(dateObj) {
   const y = dateObj.getFullYear();
   const m = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -59,6 +70,7 @@ export default function CalendarView({
   refreshTrigger,
   onTasksChanged,
   searchQuery = "",
+  taskFilters,
 }) {
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -113,14 +125,97 @@ export default function CalendarView({
     }
   };
 
+  const getPriorityValue = (task) => {
+    if (!task || task.priority == null || task.priority === "") return 0;
+    const raw = String(task.priority).toLowerCase();
+    if (raw === "high") return 3;
+    if (raw === "medium") return 2;
+    if (raw === "low") return 1;
+    const parsed = Number(task.priority);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const isOverdueTask = (task) => {
+    if (!task?.due_date) return false;
+    if (task.status === "completed") return false;
+    const due = new Date(task.due_date);
+    return !Number.isNaN(due.getTime()) && due.getTime() < Date.now();
+  };
+
   const filteredTasks = useMemo(() => {
+    const safeFilters = taskFilters || {
+      status: "all",
+      priority: "all",
+      category: "all",
+      dueDate: "any",
+    };
     const query = (searchQuery || "").trim().toLowerCase();
-    return tasks.filter((task) => {
-      if (!task?.due_date) return false;
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const weekStart = new Date(dayStart);
+    weekStart.setDate(dayStart.getDate() - dayStart.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    let result = tasks.filter((task) => {
       if (!query) return true;
       return (task.title || "").toLowerCase().includes(query);
     });
-  }, [tasks, searchQuery]);
+
+    if (safeFilters.status === "to-do") {
+      result = result.filter(
+        (task) => task.status !== "completed" && task.status !== "in-progress",
+      );
+    } else if (safeFilters.status === "in-progress") {
+      result = result.filter((task) => task.status === "in-progress");
+    } else if (safeFilters.status === "done") {
+      result = result.filter((task) => task.status === "completed");
+    } else if (safeFilters.status === "overdue") {
+      result = result.filter((task) => isOverdueTask(task));
+    }
+
+    if (safeFilters.priority !== "all") {
+      const target = safeFilters.priority === "high" ? 3 : safeFilters.priority === "medium" ? 2 : 1;
+      result = result.filter((task) => getPriorityValue(task) === target);
+    }
+
+    if (safeFilters.category === "ungrouped") {
+      result = result.filter((task) => !task.group_id);
+    } else if (safeFilters.category !== "all") {
+      const targetGroupId = Number(safeFilters.category);
+      result = result.filter((task) => Number(task.group_id) === targetGroupId);
+    }
+
+    if (safeFilters.dueDate === "today") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= dayStart && due < dayEnd;
+      });
+    } else if (safeFilters.dueDate === "this-week") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= weekStart && due < weekEnd;
+      });
+    } else if (safeFilters.dueDate === "this-month") {
+      result = result.filter((task) => {
+        if (!task.due_date) return false;
+        const due = new Date(task.due_date);
+        return due >= monthStart && due < nextMonthStart;
+      });
+    } else if (safeFilters.dueDate === "past-due") {
+      result = result.filter((task) => isOverdueTask(task));
+    } else if (safeFilters.dueDate === "no-date") {
+      result = result.filter((task) => !task.due_date);
+    }
+
+    // Calendar can only render tasks that have actual due dates.
+    return result.filter((task) => !!task?.due_date);
+  }, [tasks, searchQuery, taskFilters]);
 
   const tasksByDate = useMemo(() => {
     const byDate = new Map();
@@ -165,6 +260,7 @@ export default function CalendarView({
       priority: task.priority || "",
       group_id: task.group_id != null ? String(task.group_id) : "",
       status: task.status || "pending",
+      reminder_offset_minutes: due ? (task.reminder_offset_minutes ?? 15) : null,
     });
     setEditingTask(task);
   };
@@ -180,6 +276,9 @@ export default function CalendarView({
           priority: editDraft.priority || null,
           group_id: editDraft.group_id ? Number(editDraft.group_id) : null,
           status: editDraft.status || "pending",
+          reminder_offset_minutes: editDraft.date
+            ? (editDraft.reminder_offset_minutes ?? 15)
+            : null,
         },
       });
       setTasks((prev) => prev.map((t) => t.id === updated.id ? updated : t));
@@ -863,7 +962,20 @@ export default function CalendarView({
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <input type="text" value={editDraft.title} onChange={(e) => setEditDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                <input type="date" value={editDraft.date} onChange={(e) => setEditDraft((prev) => ({ ...prev, date: e.target.value }))} style={inputStyle} />
+                <input
+                  type="date"
+                  value={editDraft.date}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      date: e.target.value,
+                      reminder_offset_minutes: e.target.value
+                        ? (prev.reminder_offset_minutes ?? 15)
+                        : null,
+                    }))
+                  }
+                  style={inputStyle}
+                />
                 <input type="time" value={editDraft.time} onChange={(e) => setEditDraft((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
@@ -884,6 +996,24 @@ export default function CalendarView({
                 <option value="blocked">Blocked</option>
                 <option value="completed">Completed</option>
               </select>
+              {editDraft.date && (
+                <select
+                  value={editDraft.reminder_offset_minutes ?? ""}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      reminder_offset_minutes: e.target.value === "" ? null : Number(e.target.value),
+                    }))
+                  }
+                  style={inputStyle}
+                >
+                  {TASK_REMINDER_OPTIONS.map((option) => (
+                    <option key={option.value || "none"} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
               <button style={saveButtonStyle} onClick={submitEditTask}>Save</button>
