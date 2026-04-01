@@ -1,0 +1,115 @@
+/* ── Organote Calendar – CSS overrides (year view only; month view is custom JSX grid) ── */
+
+/* Year view: Ant Design Calendar wrapper sizing */
+.organote-calendar {
+  background: transparent;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.organote-calendar .ant-picker-panel,
+.organote-calendar .ant-picker-calendar-full,
+.organote-calendar .ant-picker-date-panel,
+.organote-calendar .ant-picker-body {
+  background: transparent;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.organote-calendar .ant-picker-calendar-header {
+  display: none;
+}
+
+.organote-calendar .ant-picker-content {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  display: flex;
+  flex-direction: column;
+}
+
+.organote-calendar .ant-picker-content thead {
+  flex-shrink: 0;
+  height: 30px;
+}
+
+.organote-calendar .ant-picker-content thead th {
+  height: 30px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  color: var(--text-color, rgba(255, 255, 255, 0.5));
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Equal-height month rows in year view */
+.organote-calendar .ant-picker-content tbody {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.organote-calendar .ant-picker-content tbody tr {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.organote-calendar .ant-picker-cell {
+  padding: 0 !important;
+  vertical-align: top;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  box-sizing: border-box;
+}
+
+.organote-calendar .ant-picker-cell-inner,
+.organote-calendar .ant-picker-calendar-date {
+  display: flex !important;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  margin: 0 !important;
+  padding: 4px 6px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-sizing: border-box;
+  overflow: hidden;
+  min-height: 0 !important;
+}
+
+.organote-calendar .ant-picker-calendar-date-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-color, rgba(255, 255, 255, 0.75));
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.organote-calendar .ant-picker-calendar-date-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.organote-calendar .ant-picker-cell:not(.ant-picker-cell-in-view) {
+  visibility: hidden;
+  pointer-events: none;
+}

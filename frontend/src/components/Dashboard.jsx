@@ -4,6 +4,7 @@ import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
 import KanbanView from "./KanbanView";
+import CalendarView from "./CalendarView";
 import UnstructuredInput from "./UnstructuredInputPanel";
 import { theme } from "../theme";
 import { apiFetch } from "../api";
@@ -792,6 +793,22 @@ export default function Dashboard({themeColor}) {
             >
               Kanban
             </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: viewMode === 'calendar' ? 'var(--btn-color, #A7C4A0)' : 'var(--text-color, white)',
+                fontSize: '1rem',
+                cursor: 'pointer',
+                fontWeight: viewMode === 'calendar' ? 'bold' : 'normal',
+                textDecoration: viewMode === 'calendar' ? 'underline' : 'none',
+                padding: '4px 8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              Calendar
+            </button>
           </div>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input
@@ -965,7 +982,7 @@ export default function Dashboard({themeColor}) {
               onTasksChanged={handleTasksChanged}
               onAddTasks={() => setShowAddTask(true)}
             />
-          ) : (
+          ) : viewMode === 'kanban' ? (
             <KanbanView
               refreshTrigger={refreshTrigger}
               searchQuery={searchQuery}
@@ -973,6 +990,12 @@ export default function Dashboard({themeColor}) {
               taskSort={taskSort}
               onTasksChanged={handleTasksChanged}
               onAddTasks={() => setShowAddTask(true)}
+            />
+          ) : (
+            <CalendarView
+              refreshTrigger={refreshTrigger}
+              searchQuery={searchQuery}
+              onTasksChanged={handleTasksChanged}
             />
           )}
         </div>
