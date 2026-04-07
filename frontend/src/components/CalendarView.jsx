@@ -74,6 +74,8 @@ export default function CalendarView({
   taskFilters,
 }) {
   const { isPhone, isTablet, isCompact, isLandscape } = useViewport();
+  const addDialogTitleId = "calendar-add-task-title";
+  const editDialogTitleId = "calendar-edit-task-title";
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +110,18 @@ export default function CalendarView({
   useEffect(() => {
     loadData();
   }, [refreshTrigger]);
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (showAddModal) setShowAddModal(false);
+      if (editingTask) setEditingTask(null);
+      if (titleDropdown) setTitleDropdown(null);
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [showAddModal, editingTask, titleDropdown]);
 
   const loadData = async () => {
     setLoading(true);
@@ -370,9 +384,11 @@ export default function CalendarView({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
         {visible.map((item) => (
-          <div
+          <button
             key={item.id}
             onClick={(e) => openEditModal(item, e)}
+            type="button"
+            aria-label={`Edit task ${item.title}`}
             style={{
               background: groupColorById.get(Number(item.group_id)) || "rgba(100,120,200,0.55)",
               color: "#fff",
@@ -386,11 +402,13 @@ export default function CalendarView({
               opacity: item.status === "completed" ? 0.55 : 1,
               textDecoration: item.status === "completed" ? "line-through" : "none",
               cursor: "pointer",
+              border: "none",
+              textAlign: "left",
             }}
             title={item.title}
           >
             {item.title}
-          </div>
+          </button>
         ))}
         {overflow > 0 && (
           <div style={{ fontSize: "0.62rem", color: "var(--text-color, rgba(255,255,255,0.5))", paddingLeft: "2px" }}>
@@ -695,6 +713,20 @@ export default function CalendarView({
                 <div
                   key={day.format("YYYY-MM-DD")}
                   onClick={() => inMonth && openAddTaskModal(day)}
+                  onKeyDown={(event) => {
+                    if (!inMonth) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openAddTaskModal(day);
+                    }
+                  }}
+                  role={inMonth ? "button" : undefined}
+                  tabIndex={inMonth ? 0 : -1}
+                  aria-label={
+                    inMonth
+                      ? `${day.format("MMMM D, YYYY")}. ${dayTasks.length} task${dayTasks.length === 1 ? "" : "s"}. Add or view tasks.`
+                      : undefined
+                  }
                   style={{
                     visibility: inMonth ? "visible" : "hidden",
                     display: "flex", flexDirection: "column",
@@ -775,7 +807,7 @@ export default function CalendarView({
                       const isToday = day.isSame(dayjs(), "day");
                       
                       return (
-                        <div
+                        <button
                           key={day.format("YYYY-MM-DD")}
                           onClick={() => {
                             if (hasTask) {
@@ -785,6 +817,14 @@ export default function CalendarView({
                               openAddTaskModal(day);
                             }
                           }}
+                          type="button"
+                          aria-label={
+                            hasTask
+                              ? `${day.format("MMMM D, YYYY")}. ${dayTasks.length} task${dayTasks.length === 1 ? "" : "s"}. Open day view.`
+                              : inMonth
+                                ? `${day.format("MMMM D, YYYY")}. Add task.`
+                                : `${day.format("MMMM D, YYYY")}`
+                          }
                           style={{
                             aspectRatio: "1",
                             display: "flex",
@@ -798,6 +838,7 @@ export default function CalendarView({
                             fontSize: "0.7rem",
                             border: isToday ? "2px solid var(--btn-color, #A7C4A0)" : "1px solid rgba(255,255,255,0.1)",
                             transition: "background 0.15s",
+                            padding: 0,
                           }}
                           onMouseEnter={(e) => {
                             if (hasTask || inMonth) {
@@ -810,7 +851,7 @@ export default function CalendarView({
                           title={hasTask ? dayTasks.map(t => t.title).join(", ") : ""}
                         >
                           {day.format("D")}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -846,6 +887,16 @@ export default function CalendarView({
                       setDraftTask((prev) => ({ ...prev, date: anchorDate.format("YYYY-MM-DD"), time: String(hour).padStart(2, "0") + ":00" }));
                       setShowAddModal(true);
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setDraftTask((prev) => ({ ...prev, date: anchorDate.format("YYYY-MM-DD"), time: String(hour).padStart(2, "0") + ":00" }));
+                        setShowAddModal(true);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${anchorDate.format("MMMM D, YYYY")} at ${timeLabel || "12 AM"}. ${hourTasks.length} task${hourTasks.length === 1 ? "" : "s"}. Add task for this time.`}
                     onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                   >
@@ -858,8 +909,11 @@ export default function CalendarView({
                     {/* Tasks */}
                     <div style={{ flex: 1, padding: "4px 8px", display: "flex", flexDirection: "column", gap: "3px" }}>
                       {hourTasks.map((task) => (
-                        <div
+                        <button
                           key={task.id}
+                          type="button"
+                          onClick={(e) => openEditModal(task, e)}
+                          aria-label={`Edit task ${task.title}`}
                           style={{
                             background: groupColorById.get(Number(task.group_id)) || "rgba(255,255,255,0.18)",
                             color: "#fff",
@@ -872,11 +926,13 @@ export default function CalendarView({
                             whiteSpace: "nowrap",
                             opacity: task.status === "completed" ? 0.55 : 1,
                             textDecoration: task.status === "completed" ? "line-through" : "none",
+                            border: "none",
+                            textAlign: "left",
                           }}
                           title={task.title}
                         >
                           {task.title}
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -924,6 +980,15 @@ export default function CalendarView({
                   <div
                     key={day.format("YYYY-MM-DD")}
                     onClick={() => openAddTaskModal(day)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openAddTaskModal(day);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${day.format("MMMM D, YYYY")}. ${dayTasks.length} task${dayTasks.length === 1 ? "" : "s"}. Add or view tasks.`}
                     style={{
                       border: isToday ? "1px solid rgba(169, 201, 231, 0.55)" : "1px solid rgba(255,255,255,0.15)",
                       borderRadius: "6px",
@@ -946,9 +1011,11 @@ export default function CalendarView({
                       </div>
                     ) : (
                       dayTasks.map((task) => (
-                        <div
+                        <button
                           key={task.id}
                           onClick={(e) => openEditModal(task, e)}
+                          type="button"
+                          aria-label={`Edit task ${task.title}`}
                           style={{
                             background: groupColorById.get(Number(task.group_id)) || "rgba(255,255,255,0.18)",
                             color: "#fff",
@@ -962,11 +1029,13 @@ export default function CalendarView({
                             opacity: task.status === "completed" ? 0.55 : 1,
                             textDecoration: task.status === "completed" ? "line-through" : "none",
                             cursor: "pointer",
+                            border: "none",
+                            textAlign: "left",
                           }}
                           title={task.title}
                         >
                           {task.title}
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>
@@ -979,33 +1048,46 @@ export default function CalendarView({
 
       {showAddModal && (
         <div style={modalOverlayStyle} onClick={() => setShowAddModal(false)}>
-          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, marginBottom: "14px", color: "var(--text-color, white)", fontStyle: "italic" }}>
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={addDialogTitleId}>
+            <h3 id={addDialogTitleId} style={{ marginTop: 0, marginBottom: "14px", color: "var(--text-color, white)", fontStyle: "italic" }}>
               Add Task for {dayjs(draftTask.date).format("MMM D, YYYY")}
             </h3>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <input type="text" value={draftTask.title} onChange={(e) => setDraftTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
+              <label htmlFor="calendar-add-title" style={modalLabelStyle}>Task title</label>
+              <input id="calendar-add-title" type="text" value={draftTask.title} onChange={(e) => setDraftTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
               <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
-                <input type="date" value={draftTask.date} onChange={(e) => setDraftTask((prev) => ({ ...prev, date: e.target.value }))} style={inputStyle} />
-                <input type="time" value={draftTask.time} onChange={(e) => setDraftTask((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-add-date" style={modalLabelStyle}>Date</label>
+                  <input id="calendar-add-date" type="date" value={draftTask.date} onChange={(e) => setDraftTask((prev) => ({ ...prev, date: e.target.value }))} style={inputStyle} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-add-time" style={modalLabelStyle}>Time</label>
+                  <input id="calendar-add-time" type="time" value={draftTask.time} onChange={(e) => setDraftTask((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
+                </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
-                <select value={draftTask.priority} onChange={(e) => setDraftTask((prev) => ({ ...prev, priority: e.target.value }))} style={inputStyle}>
-                  <option value="">No priority</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-                <select value={draftTask.group_id} onChange={(e) => setDraftTask((prev) => ({ ...prev, group_id: e.target.value }))} style={inputStyle}>
-                  <option value="">Ungrouped</option>
-                  {groups.map((group) => (<option key={group.id} value={group.id}>{group.name}</option>))}
-                </select>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-add-priority" style={modalLabelStyle}>Priority</label>
+                  <select id="calendar-add-priority" value={draftTask.priority} onChange={(e) => setDraftTask((prev) => ({ ...prev, priority: e.target.value }))} style={inputStyle}>
+                    <option value="">No priority</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-add-group" style={modalLabelStyle}>Group</label>
+                  <select id="calendar-add-group" value={draftTask.group_id} onChange={(e) => setDraftTask((prev) => ({ ...prev, group_id: e.target.value }))} style={inputStyle}>
+                    <option value="">Ungrouped</option>
+                    {groups.map((group) => (<option key={group.id} value={group.id}>{group.name}</option>))}
+                  </select>
+                </div>
               </div>
             </div>
             <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexDirection: isPhone ? "column" : "row" }}>
-              <button style={saveButtonStyle} onClick={submitAddTask}>Save</button>
-              <button style={cancelButtonStyle} onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button type="button" style={saveButtonStyle} onClick={submitAddTask}>Save</button>
+              <button type="button" style={cancelButtonStyle} onClick={() => setShowAddModal(false)}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1013,70 +1095,89 @@ export default function CalendarView({
 
       {editingTask && editDraft && (
         <div style={modalOverlayStyle} onClick={() => setEditingTask(null)}>
-          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, marginBottom: "14px", color: "var(--text-color, white)", fontStyle: "italic" }}>
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={editDialogTitleId}>
+            <h3 id={editDialogTitleId} style={{ marginTop: 0, marginBottom: "14px", color: "var(--text-color, white)", fontStyle: "italic" }}>
               Edit Task
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <input type="text" value={editDraft.title} onChange={(e) => setEditDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
+              <label htmlFor="calendar-edit-title" style={modalLabelStyle}>Task title</label>
+              <input id="calendar-edit-title" type="text" value={editDraft.title} onChange={(e) => setEditDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
               <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
-                <input
-                  type="date"
-                  value={editDraft.date}
-                  onChange={(e) =>
-                    setEditDraft((prev) => ({
-                      ...prev,
-                      date: e.target.value,
-                      reminder_offset_minutes: e.target.value
-                        ? (prev.reminder_offset_minutes ?? 15)
-                        : null,
-                    }))
-                  }
-                  style={inputStyle}
-                />
-                <input type="time" value={editDraft.time} onChange={(e) => setEditDraft((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-edit-date" style={modalLabelStyle}>Date</label>
+                  <input
+                    id="calendar-edit-date"
+                    type="date"
+                    value={editDraft.date}
+                    onChange={(e) =>
+                      setEditDraft((prev) => ({
+                        ...prev,
+                        date: e.target.value,
+                        reminder_offset_minutes: e.target.value
+                          ? (prev.reminder_offset_minutes ?? 15)
+                          : null,
+                      }))
+                    }
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-edit-time" style={modalLabelStyle}>Time</label>
+                  <input id="calendar-edit-time" type="time" value={editDraft.time} onChange={(e) => setEditDraft((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
+                </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
-                <select value={editDraft.priority} onChange={(e) => setEditDraft((prev) => ({ ...prev, priority: e.target.value }))} style={inputStyle}>
-                  <option value="">No priority</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-                <select value={editDraft.group_id} onChange={(e) => setEditDraft((prev) => ({ ...prev, group_id: e.target.value }))} style={inputStyle}>
-                  <option value="">Ungrouped</option>
-                  {groups.map((group) => (<option key={group.id} value={group.id}>{group.name}</option>))}
-                </select>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-edit-priority" style={modalLabelStyle}>Priority</label>
+                  <select id="calendar-edit-priority" value={editDraft.priority} onChange={(e) => setEditDraft((prev) => ({ ...prev, priority: e.target.value }))} style={inputStyle}>
+                    <option value="">No priority</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <label htmlFor="calendar-edit-group" style={modalLabelStyle}>Group</label>
+                  <select id="calendar-edit-group" value={editDraft.group_id} onChange={(e) => setEditDraft((prev) => ({ ...prev, group_id: e.target.value }))} style={inputStyle}>
+                    <option value="">Ungrouped</option>
+                    {groups.map((group) => (<option key={group.id} value={group.id}>{group.name}</option>))}
+                  </select>
+                </div>
               </div>
-              <select value={editDraft.status} onChange={(e) => setEditDraft((prev) => ({ ...prev, status: e.target.value }))} style={inputStyle}>
+              <label htmlFor="calendar-edit-status" style={modalLabelStyle}>Status</label>
+              <select id="calendar-edit-status" value={editDraft.status} onChange={(e) => setEditDraft((prev) => ({ ...prev, status: e.target.value }))} style={inputStyle}>
                 <option value="pending">Pending</option>
                 <option value="in-progress">In Progress</option>
                 <option value="blocked">Blocked</option>
                 <option value="completed">Completed</option>
               </select>
               {editDraft.date && (
-                <select
-                  value={editDraft.reminder_offset_minutes ?? ""}
-                  onChange={(e) =>
-                    setEditDraft((prev) => ({
-                      ...prev,
-                      reminder_offset_minutes: e.target.value === "" ? null : Number(e.target.value),
-                    }))
-                  }
-                  style={inputStyle}
-                >
-                  {TASK_REMINDER_OPTIONS.map((option) => (
-                    <option key={option.value || "none"} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <label htmlFor="calendar-edit-reminder" style={modalLabelStyle}>Reminder</label>
+                  <select
+                    id="calendar-edit-reminder"
+                    value={editDraft.reminder_offset_minutes ?? ""}
+                    onChange={(e) =>
+                      setEditDraft((prev) => ({
+                        ...prev,
+                        reminder_offset_minutes: e.target.value === "" ? null : Number(e.target.value),
+                      }))
+                    }
+                    style={inputStyle}
+                  >
+                    {TASK_REMINDER_OPTIONS.map((option) => (
+                      <option key={option.value || "none"} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
             </div>
             <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexDirection: isPhone ? "column" : "row" }}>
-              <button style={saveButtonStyle} onClick={submitEditTask}>Save</button>
-              <button style={{ ...cancelButtonStyle, color: "#ff8a8a", borderColor: "rgba(255,100,100,0.4)" }} onClick={deleteTask}>Delete</button>
-              <button style={cancelButtonStyle} onClick={() => setEditingTask(null)}>Cancel</button>
+              <button type="button" style={saveButtonStyle} onClick={submitEditTask}>Save</button>
+              <button type="button" style={{ ...cancelButtonStyle, color: "#ff8a8a", borderColor: "rgba(255,100,100,0.4)" }} onClick={deleteTask}>Delete</button>
+              <button type="button" style={cancelButtonStyle} onClick={() => setEditingTask(null)}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1094,6 +1195,12 @@ const navButtonStyle = {
   cursor: "pointer",
   fontSize: "0.8rem",
   transition: "all 0.2s",
+};
+
+const modalLabelStyle = {
+  color: "var(--text-color, rgba(255,255,255,0.9))",
+  fontSize: "0.8rem",
+  fontWeight: 600,
 };
 
 const modalOverlayStyle = {

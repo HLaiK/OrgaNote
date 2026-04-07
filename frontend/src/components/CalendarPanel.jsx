@@ -2,6 +2,7 @@ import { useState } from "react";
 
 export default function CalendarPanel() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const calendarTitleId = "mini-calendar-title";
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -31,7 +32,7 @@ export default function CalendarPanel() {
 
     // Empty cells for days before the month starts
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} style={styles.emptyDay}></div>);
+      days.push(<div key={`empty-${i}`} aria-hidden="true" style={styles.emptyDay}></div>);
     }
 
     // Days of the month
@@ -45,6 +46,9 @@ export default function CalendarPanel() {
       days.push(
         <div
           key={day}
+          role="gridcell"
+          aria-label={`${monthNames[currentDate.getMonth()]} ${day}, ${currentDate.getFullYear()}${isToday ? ", today" : ""}`}
+          aria-current={isToday ? "date" : undefined}
           style={{
             ...styles.day,
             ...(isToday ? styles.todayDay : {}),
@@ -59,31 +63,33 @@ export default function CalendarPanel() {
   };
 
   return (
-    <div style={styles.container}>
+    <section style={styles.container} aria-labelledby={calendarTitleId}>
       <div style={styles.header}>
-        <button style={styles.navButton} onClick={prevMonth}>
+        <button type="button" style={styles.navButton} onClick={prevMonth} aria-label="Show previous month">
           ←
         </button>
-        <h3 style={styles.title}>
+        <h3 id={calendarTitleId} style={styles.title} aria-live="polite">
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h3>
-        <button style={styles.navButton} onClick={nextMonth}>
+        <button type="button" style={styles.navButton} onClick={nextMonth} aria-label="Show next month">
           →
         </button>
       </div>
 
-      <div style={styles.weekDays}>
+      <div style={styles.weekDays} role="row">
         {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-          <div key={`weekday-${index}`} style={styles.weekDay}>
+          <div key={`weekday-${index}`} role="columnheader" aria-label={weekdayNames[index]} style={styles.weekDay}>
             {day}
           </div>
         ))}
       </div>
 
-      <div style={styles.calendarGrid}>{renderCalendarDays()}</div>
-    </div>
+      <div style={styles.calendarGrid} role="grid" aria-labelledby={calendarTitleId}>{renderCalendarDays()}</div>
+    </section>
   );
 }
+
+const weekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const styles = {
   container: {
@@ -108,7 +114,7 @@ const styles = {
     border: "none",
     fontSize: "1rem",
     cursor: "pointer",
-    color: "var(--text-color, rgba(165, 165, 165, 0.7))",
+    color: "var(--text-color, rgba(255,255,255,0.9))",
     padding: "2px 6px",
     transition: "color 0.2s",
   },
@@ -122,7 +128,7 @@ const styles = {
     textAlign: "center",
     fontSize: "0.65rem",
     fontWeight: "bold",
-    color: "var(--text-color, rgba(255,255,255,0.6))",
+    color: "var(--text-color, rgba(255,255,255,0.86))",
   },
   calendarGrid: {
     display: "grid",
@@ -135,10 +141,10 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     fontSize: "0.7rem",
-    color: "var(--text-color, rgba(255,255,255,0.7))",
+    color: "var(--text-color, rgba(255,255,255,0.88))",
     borderRadius: "3px",
     border: "1px solid rgba(255,255,255,0.1)",
-    cursor: "pointer",
+    cursor: "default",
     transition: "all 0.2s",
   },
   todayDay: {

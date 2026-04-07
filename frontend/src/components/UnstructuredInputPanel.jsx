@@ -4,6 +4,8 @@ import { apiFetch } from "../api";
 export default function UnstructuredInputPanel({ onTasksCreated }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const textareaId = "unstructured-task-input";
+  const helpTextId = "unstructured-task-input-help";
 
   async function handleOrganize() {
     if (!text.trim()) return;
@@ -28,17 +30,25 @@ export default function UnstructuredInputPanel({ onTasksCreated }) {
 
   return (
     <div style={styles.container}>
+      <label htmlFor={textareaId} style={styles.label}>Task input</label>
       <textarea
+        id={textareaId}
         style={styles.textarea}
         placeholder="Add in your tasks..."
         value={text}
         onChange={(e) => setText(e.target.value)}
+        aria-describedby={helpTextId}
       />
+
+      <p id={helpTextId} style={styles.helpText}>
+        Paste or type a loose list of tasks and the organizer will turn it into structured tasks.
+      </p>
 
       <button
         style={styles.button}
         onClick={handleOrganize}
         disabled={loading}
+        type="button"
       >
         {loading ? "Organizing…" : "Organize"}
       </button>
@@ -53,6 +63,11 @@ const styles = {
     gap: "12px",
     height: "100%"
   },
+  label: {
+    fontSize: "0.9rem",
+    fontWeight: 600,
+    color: "var(--text-color, white)",
+  },
   textarea: {
     flex: 1,
     padding: "12px",
@@ -65,6 +80,12 @@ const styles = {
     minHeight: "120px",
     fontFamily: "inherit",
     backdropFilter: "blur(5px)"
+  },
+  helpText: {
+    margin: 0,
+    fontSize: "0.8rem",
+    lineHeight: 1.4,
+    color: "var(--text-color, rgba(255,255,255,0.72))",
   },
   button: {
     padding: "12px",

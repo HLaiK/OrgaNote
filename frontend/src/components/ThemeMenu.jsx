@@ -65,21 +65,29 @@ export default function ThemeMenu() {
 
   return (
     <>
-      <div id="settingsIcon" onClick={() => setOpen(!open)}>
+      <button
+        id="settingsIcon"
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls="theme-menu-panel"
+        aria-label="Toggle theme customization menu"
+      >
         <ToolOutlined />
-      </div>
+      </button>
 
-      <div className={`color-menu ${open ? "show" : ""}`}>
+      <div id="theme-menu-panel" className={`color-menu ${open ? "show" : ""}`} role="region" aria-label="Theme customization settings">
         <h3>Customize Theme</h3>
 
-        <label>Background Color:</label>
-        <input type="color" value={bgColor} onChange={onBgChange} />
+        <label htmlFor="theme-menu-background">Background Color:</label>
+        <input id="theme-menu-background" type="color" value={bgColor} onChange={onBgChange} />
 
-        <label>Button Color:</label>
-        <input type="color" value={btnColor} onChange={onBtnChange} />
+        <label htmlFor="theme-menu-button">Button Color:</label>
+        <input id="theme-menu-button" type="color" value={btnColor} onChange={onBtnChange} />
         
-        <label style={{ marginTop: '10px' }}>Text Color:</label>
+        <label htmlFor="theme-menu-text" style={{ marginTop: '10px' }}>Text Color:</label>
         <input
+          id="theme-menu-text"
           type="color"
           value={textColor || document.documentElement.style.getPropertyValue('--text-color') || '#000000'}
           onChange={(e) => {

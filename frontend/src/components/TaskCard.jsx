@@ -30,7 +30,7 @@ export default function TaskCard({ task, deleteTask }) {
       )}
 
       <div className="task-actions">
-        <button className="btn-small btn-delete" onClick={() => deleteTask(task.id)}>
+        <button type="button" className="btn-small btn-delete" onClick={() => deleteTask(task.id)} aria-label={`Delete task ${task.title}`}>
           Delete
         </button>
       </div>

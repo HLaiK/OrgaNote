@@ -29,6 +29,9 @@ export default function KanbanView({
   onAddTasks,
 }) {
   const { isPhone, isTablet, isLandscape } = useViewport();
+  const editDialogTitleId = "kanban-edit-task-title";
+  const createGroupTitleId = "kanban-create-group-title";
+  const renameGroupTitleId = "kanban-rename-group-title";
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +74,19 @@ export default function KanbanView({
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (editingTask) cancelEdit();
+      if (creatingGroup) cancelCreateGroup();
+      if (renamingGroup) cancelRenameGroup();
+      if (clearMenuOpen) setClearMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [editingTask, creatingGroup, renamingGroup, clearMenuOpen]);
 
   async function fetchAll() {
     setLoading(true);
@@ -695,6 +711,7 @@ export default function KanbanView({
             }}
             onClick={toggleAllGroups}
             title={hasExpandedGroups ? "Collapse all groups" : "Expand all groups"}
+            aria-label={hasExpandedGroups ? "Collapse all task groups" : "Expand all task groups"}
           >
             {hasExpandedGroups ? "Collapse All" : "Expand All"}
           </button>
@@ -711,6 +728,7 @@ export default function KanbanView({
               cursor: "pointer",
             }}
             onClick={() => onAddTasks?.()}
+            aria-label="Open add tasks panel"
           >
             <PlusOutlined /> Add Tasks
           </button>
@@ -729,11 +747,16 @@ export default function KanbanView({
               }}
               onClick={() => setClearMenuOpen((prev) => !prev)}
               title="Clear tasks options"
+              aria-haspopup="menu"
+              aria-expanded={clearMenuOpen}
+              aria-label="Open clear tasks options"
             >
               <DeleteOutlined /> Clear
             </button>
             {clearMenuOpen && (
               <div
+                role="menu"
+                aria-label="Clear tasks options"
                 style={{
                   position: "absolute",
                   top: "calc(100% + 6px)",
@@ -749,6 +772,7 @@ export default function KanbanView({
                 }}
               >
                 <button
+                  role="menuitem"
                   style={{
                     width: "100%",
                     background: "transparent",
@@ -767,6 +791,7 @@ export default function KanbanView({
                   Clear all tasks
                 </button>
                 <button
+                  role="menuitem"
                   style={{
                     width: "100%",
                     background: "transparent",
@@ -937,6 +962,8 @@ export default function KanbanView({
                             minWidth: 0,
                           }}
                           onClick={() => toggleGroupCollapse(col.id, section.id)}
+                          aria-expanded={!isCollapsed}
+                          aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${section.name} group in ${col.title}`}
                         >
                           <span style={{ fontWeight: 700, fontSize: isPhoneLandscape ? "0.72rem" : "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{section.name}</span>
                           <span style={{ fontSize: isPhoneLandscape ? "0.62rem" : "0.68rem", opacity: 0.75 }}>
@@ -949,6 +976,7 @@ export default function KanbanView({
                             <input
                               type="color"
                               value={section.color || "#4F46E5"}
+                              aria-label={`Change color for ${section.name}`}
                               style={{ width: isPhoneLandscape ? "20px" : "24px", height: isPhoneLandscape ? "20px" : "24px", border: "none", background: "transparent", padding: 0 }}
                               onChange={(e) => changeGroupColor(section.id, e.target.value)}
                             />
@@ -956,6 +984,7 @@ export default function KanbanView({
                               style={{ background: "none", border: "none", color: "var(--text-color, #2A2A2A)", opacity: 0.7, cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
                               onClick={() => openRenameGroupModal(section)}
                               title="Rename group"
+                              aria-label={`Rename ${section.name} group`}
                             >
                               <EditOutlined />
                             </button>
@@ -963,6 +992,7 @@ export default function KanbanView({
                               style={{ background: "none", border: "none", color: "var(--text-color, #2A2A2A)", opacity: 0.7, cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
                               onClick={() => deleteGroup(section.id)}
                               title="Delete group"
+                              aria-label={`Delete ${section.name} group`}
                             >
                               <DeleteOutlined />
                             </button>
@@ -1052,6 +1082,7 @@ export default function KanbanView({
                                     alignItems: "center",
                                   }}
                                   title="Edit task"
+                                  aria-label={`Edit task ${task.title}`}
                                 >
                                   <EditOutlined />
                                 </button>
@@ -1069,6 +1100,7 @@ export default function KanbanView({
                                     alignItems: "center",
                                   }}
                                   title="Delete task"
+                                  aria-label={`Delete task ${task.title}`}
                                 >
                                   <DeleteOutlined />
                                 </button>
@@ -1193,10 +1225,14 @@ export default function KanbanView({
               boxSizing: "border-box",
             }}
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={editDialogTitleId}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexShrink: 0 }}>
-              <h3 style={{ margin: 0, fontSize: "1.8rem", fontWeight: "bold", color: "var(--text-color, white)", fontStyle: "italic" }}>Edit Task</h3>
+              <h3 id={editDialogTitleId} style={{ margin: 0, fontSize: "1.8rem", fontWeight: "bold", color: "var(--text-color, white)", fontStyle: "italic" }}>Edit Task</h3>
               <button
+                type="button"
                 onClick={cancelEdit}
                 style={{
                   background: "none",
@@ -1220,6 +1256,7 @@ export default function KanbanView({
                   Title
                 </label>
                 <input
+                  id="kanban-edit-title-input"
                   type="text"
                   value={editingTask.title || ""}
                   onChange={(e) => handleEditChange("title", e.target.value)}
@@ -1264,6 +1301,7 @@ export default function KanbanView({
                   </button>
                 </div>
                 <select
+                  id="kanban-edit-group-input"
                   value={editingTask.group_id || ""}
                   onChange={(e) =>
                     handleEditChange("group_id", e.target.value ? Number(e.target.value) : null)
@@ -1295,6 +1333,7 @@ export default function KanbanView({
                   Due Date & Time
                 </label>
                 <input
+                  id="kanban-edit-due-date-input"
                   type="datetime-local"
                   value={editingTask.due_date ? localDateTimeForInput(editingTask.due_date) : ""}
                   onChange={(e) => {
@@ -1327,6 +1366,7 @@ export default function KanbanView({
                   Priority
                 </label>
                 <select
+                  id="kanban-edit-priority-input"
                   value={editingTask.priority || ""}
                   onChange={(e) => handleEditChange("priority", e.target.value || null)}
                   style={{
@@ -1355,6 +1395,7 @@ export default function KanbanView({
                     Reminder
                   </label>
                   <select
+                    id="kanban-edit-reminder-input"
                     value={editingTask.reminder_offset_minutes ?? ""}
                     onChange={(e) =>
                       handleEditChange(
@@ -1387,6 +1428,7 @@ export default function KanbanView({
 
             <div style={{ display: "flex", gap: "12px", flexShrink: 0, marginTop: "20px" }}>
               <button
+                type="button"
                 onClick={submitEdit}
                 style={{
                   flex: 1,
@@ -1412,6 +1454,7 @@ export default function KanbanView({
                 Save
               </button>
               <button
+                type="button"
                 onClick={cancelEdit}
                 style={{
                   flex: 1,
@@ -1465,10 +1508,14 @@ export default function KanbanView({
               backdropFilter: "blur(10px)",
             }}
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={createGroupTitleId}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-              <h3 style={{ margin: 0, fontSize: "1.8rem", fontWeight: "bold", color: "var(--text-color, white)", fontStyle: "italic" }}>Create Group</h3>
+              <h3 id={createGroupTitleId} style={{ margin: 0, fontSize: "1.8rem", fontWeight: "bold", color: "var(--text-color, white)", fontStyle: "italic" }}>Create Group</h3>
               <button
+                type="button"
                 onClick={cancelCreateGroup}
                 style={{
                   background: "none",
@@ -1492,6 +1539,7 @@ export default function KanbanView({
                   Group Name
                 </label>
                 <input
+                  id="kanban-create-group-name"
                   type="text"
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
@@ -1516,6 +1564,7 @@ export default function KanbanView({
                   Group Color
                 </label>
                 <input
+                  id="kanban-create-group-color"
                   type="color"
                   value={newGroupColor}
                   onChange={(e) => setNewGroupColor(e.target.value)}
@@ -1526,6 +1575,7 @@ export default function KanbanView({
 
             <div style={{ display: "flex", gap: "12px" }}>
               <button
+                type="button"
                 onClick={submitCreateGroup}
                 style={{
                   flex: 1,
@@ -1551,6 +1601,7 @@ export default function KanbanView({
                 Create
               </button>
               <button
+                type="button"
                 onClick={cancelCreateGroup}
                 style={{
                   flex: 1,
@@ -1604,10 +1655,14 @@ export default function KanbanView({
               backdropFilter: "blur(10px)",
             }}
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={renameGroupTitleId}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-              <h3 style={{ margin: 0, fontSize: "1.8rem", fontWeight: "bold", color: "var(--text-color, white)", fontStyle: "italic" }}>Rename Group</h3>
+              <h3 id={renameGroupTitleId} style={{ margin: 0, fontSize: "1.8rem", fontWeight: "bold", color: "var(--text-color, white)", fontStyle: "italic" }}>Rename Group</h3>
               <button
+                type="button"
                 onClick={cancelRenameGroup}
                 style={{
                   background: "none",
@@ -1631,6 +1686,7 @@ export default function KanbanView({
                   Group Name
                 </label>
                 <input
+                  id="kanban-rename-group-name"
                   type="text"
                   value={renameGroupName}
                   onChange={(e) => setRenameGroupName(e.target.value)}
@@ -1653,6 +1709,7 @@ export default function KanbanView({
 
             <div style={{ display: "flex", gap: "12px" }}>
               <button
+                type="button"
                 onClick={submitRenameGroup}
                 style={{
                   flex: 1,
@@ -1678,6 +1735,7 @@ export default function KanbanView({
                 Save
               </button>
               <button
+                type="button"
                 onClick={cancelRenameGroup}
                 style={{
                   flex: 1,

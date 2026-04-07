@@ -16,6 +16,12 @@ const SURFACE_BG_HOVER = "rgba(194, 194, 194, 0.74)";
 const SURFACE_BORDER = "rgba(51, 67, 57, 0.18)";
 const SURFACE_TEXT = "#233127";
 const SURFACE_MUTED = "#4a5c52";
+const SETTINGS_TEXT = "rgba(255,255,255,0.96)";
+const SETTINGS_MUTED = "rgba(255,255,255,0.84)";
+const SETTINGS_SUBTLE = "rgba(255,255,255,0.74)";
+const SETTINGS_PANEL = "rgba(255,255,255,0.08)";
+const SETTINGS_PANEL_ALT = "rgba(255,255,255,0.12)";
+const SETTINGS_PANEL_BORDER = "rgba(255,255,255,0.18)";
 
 const styles = {
   container: {
@@ -314,6 +320,9 @@ export default function Dashboard({themeColor}) {
   });
   const [plantJournalEntries, setPlantJournalEntries] = useState([]);
   const [activeRewardSnapshot, setActiveRewardSnapshot] = useState(null);
+  const settingsTitleId = "dashboard-settings-title";
+  const addTasksTitleId = "dashboard-add-tasks-title";
+  const filtersPanelId = "dashboard-filters-panel";
   const hasTaskReminder = (task) =>
     task?.due_date && task?.reminder_offset_minutes !== null && task?.reminder_offset_minutes !== undefined;
   const pushReminder = (title, body, tag) => {
@@ -808,6 +817,29 @@ export default function Dashboard({themeColor}) {
     }
   }, [showMiniCalendar]);
 
+  useEffect(() => {
+    if (!showSettings && !showAddTask) {
+      return undefined;
+    }
+
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      if (showAddTask) {
+        setShowAddTask(false);
+      }
+
+      if (showSettings) {
+        setShowSettings(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showAddTask, showSettings]);
+
   const useFullWidthCalendarLayout = isTabletLandscape && viewMode === 'calendar';
   const useFullWidthKanbanLayout = isLandscape && isCompact && viewMode === 'kanban';
   const useStackedCompactLayout = (isCompact && !isTabletLandscape) || useFullWidthCalendarLayout || useFullWidthKanbanLayout;
@@ -959,7 +991,7 @@ export default function Dashboard({themeColor}) {
   return (
     <div style={containerStyle} data-dashboard-container>
       {/* LEFT SIDEBAR */}
-      <div style={sidebarStyle}>
+      <aside style={sidebarStyle} aria-label="Sidebar panels">
         <div style={sidebarPanelGridStyle || undefined}>
           {/* Calendar */}
           {showMiniCalendar && (
@@ -973,28 +1005,32 @@ export default function Dashboard({themeColor}) {
             <ProgressPanel refreshTrigger={refreshTrigger} />
           </div>
         </div>
-      </div>
+      </aside>
 
       {/* RIGHT: Tasks */}
-      <div style={mainContentStyle}>
-        <div style={tasksHeaderStyle}>
+      <main style={mainContentStyle} aria-label="Task management workspace">
+        <header style={tasksHeaderStyle}>
           <h2 style={{ ...styles.title, color: fontColor }}>Tasks Organized</h2>
           <div style={styles.headerIcons}>
             <button
               style={styles.headerButton}
               onClick={() => setShowSettings(true)}
               title="Settings"
+              type="button"
+              aria-label="Open settings"
             >
               <ToolOutlined />
             </button>
           </div>
-        </div>
+        </header>
 
         {/* View Mode Toggle Buttons and Search */}
         <div style={controlsBarStyle}>
           <div style={viewToggleGroupStyle}>
             <button
               onClick={() => setViewMode('list')}
+              type="button"
+              aria-pressed={viewMode === 'list'}
               style={{
                 background: 'none',
                 border: 'none',
@@ -1011,6 +1047,8 @@ export default function Dashboard({themeColor}) {
             </button>
             <button
               onClick={() => setViewMode('kanban')}
+              type="button"
+              aria-pressed={viewMode === 'kanban'}
               style={{
                 background: 'none',
                 border: 'none',
@@ -1027,6 +1065,8 @@ export default function Dashboard({themeColor}) {
             </button>
             <button
               onClick={() => setViewMode('calendar')}
+              type="button"
+              aria-pressed={viewMode === 'calendar'}
               style={{
                 background: 'none',
                 border: 'none',
@@ -1062,6 +1102,9 @@ export default function Dashboard({themeColor}) {
             />
             <button
               onClick={() => setShowFilters((prev) => !prev)}
+              type="button"
+              aria-expanded={showFilters}
+              aria-controls={filtersPanelId}
               style={{
                 border: `1px solid ${SURFACE_BORDER}`,
                 background: filterCount > 0 ? 'rgba(232, 239, 227, 0.98)' : SURFACE_BG,
@@ -1079,6 +1122,9 @@ export default function Dashboard({themeColor}) {
 
             {showFilters && (
               <div
+                id={filtersPanelId}
+                role="group"
+                aria-label="Task filters and sorting"
                 style={{
                   position: 'absolute',
                   top: '40px',
@@ -1097,7 +1143,7 @@ export default function Dashboard({themeColor}) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Status</label>
-                    <select value={taskFilters.status} onChange={(e) => updateFilter('status', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
+                    <select aria-label="Filter tasks by status" value={taskFilters.status} onChange={(e) => updateFilter('status', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="all">All</option>
                       <option value="to-do">To Do</option>
                       <option value="in-progress">In Progress</option>
@@ -1107,7 +1153,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Priority</label>
-                    <select value={taskFilters.priority} onChange={(e) => updateFilter('priority', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
+                    <select aria-label="Filter tasks by priority" value={taskFilters.priority} onChange={(e) => updateFilter('priority', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="all">All</option>
                       <option value="high">High</option>
                       <option value="medium">Medium</option>
@@ -1116,7 +1162,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Category</label>
-                    <select value={taskFilters.category} onChange={(e) => updateFilter('category', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
+                    <select aria-label="Filter tasks by category" value={taskFilters.category} onChange={(e) => updateFilter('category', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="all">All</option>
                       <option value="ungrouped">Ungrouped</option>
                       {groupsForFilters.map((group) => (
@@ -1126,7 +1172,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Due Date</label>
-                    <select value={taskFilters.dueDate} onChange={(e) => updateFilter('dueDate', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
+                    <select aria-label="Filter tasks by due date" value={taskFilters.dueDate} onChange={(e) => updateFilter('dueDate', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="any">Anytime</option>
                       <option value="today">Today</option>
                       <option value="this-week">This Week</option>
@@ -1137,7 +1183,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Sort By</label>
-                    <select value={taskSort.sortBy} onChange={(e) => updateSort('sortBy', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
+                    <select aria-label="Sort tasks by field" value={taskSort.sortBy} onChange={(e) => updateSort('sortBy', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="due-date">Due Date</option>
                       <option value="priority">Priority</option>
                       <option value="alpha">Alphabetical</option>
@@ -1147,7 +1193,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Order</label>
-                    <select value={taskSort.direction} onChange={(e) => updateSort('direction', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
+                    <select aria-label="Sort tasks direction" value={taskSort.direction} onChange={(e) => updateSort('direction', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       {taskSort.sortBy === 'due-date' && (
                         <>
                           <option value="asc">Ascending</option>
@@ -1183,10 +1229,10 @@ export default function Dashboard({themeColor}) {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', gap: '8px' }}>
-                  <button onClick={resetFiltersAndSort} style={{ flex: 1, padding: '7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.12)', color: 'var(--text-color, white)', cursor: 'pointer' }}>
+                  <button type="button" onClick={resetFiltersAndSort} style={{ flex: 1, padding: '7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.12)', color: 'var(--text-color, white)', cursor: 'pointer' }}>
                     Reset
                   </button>
-                  <button onClick={() => setShowFilters(false)} style={{ flex: 1, padding: '7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.24)', background: 'rgba(255,255,255,0.2)', color: 'var(--text-color, white)', cursor: 'pointer' }}>
+                  <button type="button" onClick={() => setShowFilters(false)} style={{ flex: 1, padding: '7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.24)', background: 'rgba(255,255,255,0.2)', color: 'var(--text-color, white)', cursor: 'pointer' }}>
                     Close
                   </button>
                 </div>
@@ -1224,20 +1270,22 @@ export default function Dashboard({themeColor}) {
             />
           )}
         </div>
-      </div>
+      </main>
 
       {/* Add Task Modal */}
       {showAddTask && (
         <div style={styles.modalOverlay} onClick={() => setShowAddTask(false)}>
-          <div style={{ ...styles.modal, maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby={addTasksTitleId} style={{ ...styles.modal, maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
             <button
               style={styles.closeButton}
               onClick={() => setShowAddTask(false)}
+              type="button"
+              aria-label="Close add tasks dialog"
             >
               <CloseOutlined />
             </button>
 
-            <h3 style={styles.modalTitle}>Add Tasks</h3>
+            <h3 id={addTasksTitleId} style={styles.modalTitle}>Add Tasks</h3>
 
             <UnstructuredInput onTasksCreated={() => {
               handleTasksChanged();
@@ -1250,15 +1298,17 @@ export default function Dashboard({themeColor}) {
       {/* Settings Modal */}
       {showSettings && (
         <div style={styles.modalOverlay} onClick={() => setShowSettings(false)}>
-          <div style={settingsDialogStyle} onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby={settingsTitleId} style={settingsDialogStyle} onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div style={settingsHeaderStyle}>
               <div>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: '4px', fontWeight: 400 }}>Preferences</div>
-                <h3 style={{ margin: 0, fontSize: '1.5rem', fontStyle: 'normal', fontFamily: 'inherit', color: 'var(--text-color, white)', lineHeight: 1 }}>Settings</h3>
+                <h3 id={settingsTitleId} style={{ margin: 0, fontSize: '1.5rem', fontStyle: 'normal', fontFamily: 'inherit', color: 'var(--text-color, white)', lineHeight: 1 }}>Settings</h3>
               </div>
               <button
                 onClick={() => setShowSettings(false)}
+                type="button"
+                aria-label="Close settings dialog"
                 style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-color, rgba(255,255,255,0.7))', fontSize: '0.85rem', transition: 'all 0.2s', flexShrink: 0 }}
               >
                 <CloseOutlined />
@@ -1266,11 +1316,14 @@ export default function Dashboard({themeColor}) {
             </div>
 
             {/* Tabs */}
-            <div style={settingsTabsStyle}>
+            <div style={settingsTabsStyle} role="tablist" aria-label="Settings tabs">
               {['display', 'alerts', 'plant-journal'].map(tab => (
                 <button
                   key={tab}
                   onClick={() => setSettingsTab(tab)}
+                  type="button"
+                  role="tab"
+                  aria-selected={settingsTab === tab}
                   style={{
                     padding: '10px 16px 11px',
                     fontSize: '11px',
@@ -1294,36 +1347,40 @@ export default function Dashboard({themeColor}) {
             {/* Display tab*/}
             {settingsTab === 'display' && (
               <div style={{ padding: settingsPanelPadding, display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Appearance</div>
+                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: SETTINGS_SUBTLE, marginBottom: '2px' }}>Appearance</div>
 
                 {/* Mini Calendar Toggle */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}><CalendarOutlined /></div>
+                    <div style={{ width: '30px', height: '30px', background: SETTINGS_PANEL_ALT, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: SETTINGS_TEXT, flexShrink: 0 }}><CalendarOutlined /></div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Show Mini Calendar</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Toggle sidebar calendar visibility</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Show Mini Calendar</div>
+                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>Toggle sidebar calendar visibility</div>
                     </div>
                   </div>
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={showMiniCalendar}
+                    aria-label={showMiniCalendar ? 'Hide mini calendar' : 'Show mini calendar'}
                     onClick={() => setShowMiniCalendar(prev => !prev)}
                     style={{ width: '44px', height: '24px', borderRadius: '12px', background: showMiniCalendar ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.15)', border: `1px solid ${showMiniCalendar ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.2)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 }}
                   >
                     <div style={{ position: 'absolute', top: '3px', left: showMiniCalendar ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-                  </div>
+                  </button>
                 </div>
 
                 {/* Background Color */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>◉</div>
+                    <div style={{ width: '30px', height: '30px', background: SETTINGS_PANEL_ALT, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: SETTINGS_TEXT, flexShrink: 0 }}>◉</div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Background Color</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Base theme color</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Background Color</div>
+                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>Base theme color</div>
                     </div>
                   </div>
                   <input
                     type="color"
+                    aria-label="Choose background color"
                     value={normalizeColor(bgColor)}
                     onChange={(e) => { const v = e.target.value; setBgColor(v); saveBackgroundToTheme(v, useGradient, gradientColor); }}
                     style={{ width: '36px', height: '36px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', cursor: 'pointer', padding: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}
@@ -1331,16 +1388,17 @@ export default function Dashboard({themeColor}) {
                 </div>
 
                 {/* Font Color */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'serif', fontSize: '15px', fontWeight: 'bold', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>A</div>
+                    <div style={{ width: '30px', height: '30px', background: SETTINGS_PANEL_ALT, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'serif', fontSize: '15px', fontWeight: 'bold', color: SETTINGS_TEXT, flexShrink: 0 }}>A</div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Font Color</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Text appearance</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Font Color</div>
+                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>Text appearance</div>
                     </div>
                   </div>
                   <input
                     type="color"
+                    aria-label="Choose font color"
                     value={fontColor}
                     onChange={(e) => setFontColor(e.target.value)}
                     style={{ width: '36px', height: '36px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', cursor: 'pointer', padding: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}
@@ -1348,34 +1406,38 @@ export default function Dashboard({themeColor}) {
                 </div>
 
                 {/* Gradient Toggle */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>GR</div>
+                    <div style={{ width: '30px', height: '30px', background: SETTINGS_PANEL_ALT, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 600, color: SETTINGS_TEXT, flexShrink: 0 }}>GR</div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Gradient Background</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Blend two colors</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Gradient Background</div>
+                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>Blend two colors</div>
                     </div>
                   </div>
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={useGradient}
+                    aria-label={useGradient ? 'Disable gradient background' : 'Enable gradient background'}
                     onClick={() => { const f = !useGradient; setUseGradient(f); saveBackgroundToTheme(bgColor, f, gradientColor); }}
                     style={{ width: '44px', height: '24px', borderRadius: '12px', background: useGradient ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.15)', border: `1px solid ${useGradient ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.2)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 }}
                   >
                     <div style={{ position: 'absolute', top: '3px', left: useGradient ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-                  </div>
+                  </button>
                 </div>
 
                 {/* Gradient End Color */}
                 {useGradient && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}>→</div>
+                      <div style={{ width: '30px', height: '30px', background: SETTINGS_PANEL_ALT, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: SETTINGS_TEXT, flexShrink: 0 }}>→</div>
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Gradient End Color</div>
-                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Second blend color</div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Gradient End Color</div>
+                        <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>Second blend color</div>
                       </div>
                     </div>
                     <input
                       type="color"
+                      aria-label="Choose gradient end color"
                       value={normalizeColor(gradientColor)}
                       onChange={(e) => { setGradientColor(e.target.value); saveBackgroundToTheme(bgColor, true, e.target.value); }}
                       style={{ width: '36px', height: '36px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', cursor: 'pointer', padding: '2px', background: 'rgba(255,255,255,0.1)', flexShrink: 0 }}
@@ -1384,12 +1446,12 @@ export default function Dashboard({themeColor}) {
                 )}
 
                 {/* Background Image Upload */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}><PictureOutlined /></div>
+                    <div style={{ width: '30px', height: '30px', background: SETTINGS_PANEL_ALT, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', color: SETTINGS_TEXT, flexShrink: 0 }}><PictureOutlined /></div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Background Image</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>PNG or GIF only — max ~4 MB</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Background Image</div>
+                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>PNG or GIF only — max ~4 MB</div>
                     </div>
                   </div>
 
@@ -1397,14 +1459,16 @@ export default function Dashboard({themeColor}) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '8px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                         <img src={bgImage} alt="preview" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '5px', flexShrink: 0 }} />
-                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bgImageName}</span>
+                        <span style={{ fontSize: '11px', color: SETTINGS_MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bgImageName}</span>
                       </div>
                       <button
                         onClick={clearBgImage}
+                        type="button"
+                        aria-label="Remove background image"
                         title="Remove image"
-                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: '11px', padding: '4px 8px', flexShrink: 0, transition: 'all 0.2s' }}
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.28)', borderRadius: '6px', cursor: 'pointer', color: SETTINGS_MUTED, fontSize: '11px', padding: '4px 8px', flexShrink: 0, transition: 'all 0.2s' }}
                         onMouseEnter={e => { e.currentTarget.style.color = '#e88080'; e.currentTarget.style.borderColor = '#e88080'; }}
-                        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = SETTINGS_MUTED; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.28)'; }}
                       >Remove</button>
                     </div>
                   ) : (
@@ -1413,9 +1477,9 @@ export default function Dashboard({themeColor}) {
                       onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
                     >
-                      <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '16px', lineHeight: 1 }}>↑</span>
-                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Drop or click to browse…</span>
-                      <input type="file" accept="image/png,image/gif" onChange={handleBgImageUpload} style={{ display: 'none' }} />
+                      <span style={{ color: SETTINGS_TEXT, fontSize: '16px', lineHeight: 1 }}>↑</span>
+                      <span style={{ fontSize: '12px', color: SETTINGS_MUTED }}>Drop or click to browse…</span>
+                      <input aria-label="Upload background image" type="file" accept="image/png,image/gif" onChange={handleBgImageUpload} style={{ display: 'none' }} />
                     </label>
                   )}
                 </div>
@@ -1425,29 +1489,32 @@ export default function Dashboard({themeColor}) {
             {/* Alerts*/}
             {settingsTab === 'alerts' && (
               <div style={{ padding: settingsPanelPadding, display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: settingsScrollableHeight, overflowY: 'auto' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Notifications</div>
+                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: SETTINGS_SUBTLE, marginBottom: '2px' }}>Notifications</div>
 
                 {/* Enable Notifications toggle */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>🔔</div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Enable Notifications</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Push and in-app alerts</div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Enable Notifications</div>
+                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>Push and in-app alerts</div>
                     </div>
                   </div>
-                  <div
+                  <button
+                    type="button"
+                    aria-pressed={notificationsEnabled}
+                    aria-label={notificationsEnabled ? 'Disable notifications' : 'Enable notifications'}
                     onClick={() => setNotificationsEnabled(prev => !prev)}
                     style={{ width: '44px', height: '24px', borderRadius: '12px', background: notificationsEnabled ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.15)', border: `1px solid ${notificationsEnabled ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.2)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 }}
                   >
                     <div style={{ position: 'absolute', top: '3px', left: notificationsEnabled ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-                  </div>
+                  </button>
                 </div>
 
                 {/* Reminders panel */}
                 {notificationsEnabled && (
-                  <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', padding: '14px' }}>
-                    <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: '10px' }}>Reminders</div>
+                  <div style={{ background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px', padding: '14px' }}>
+                    <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: SETTINGS_MUTED, marginBottom: '10px' }}>Reminders</div>
 
                     {/* Existing reminders */}
                     {reminders.length > 0 && (
@@ -1455,7 +1522,7 @@ export default function Dashboard({themeColor}) {
                         {reminders.map(r => (
                           <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '9px', padding: '8px 12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
+                              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: SETTINGS_MUTED, flexShrink: 0 }} />
                               <span style={{ fontSize: '12px', color: 'var(--text-color, white)' }}>{r.label}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1463,9 +1530,11 @@ export default function Dashboard({themeColor}) {
                               <button
                                 onClick={() => deleteReminder(r.id)}
                                 title="Remove"
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: '13px', padding: '0 2px', lineHeight: 1, transition: 'color 0.2s' }}
+                                type="button"
+                                aria-label={`Remove reminder ${r.label}`}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: SETTINGS_SUBTLE, fontSize: '13px', padding: '0 2px', lineHeight: 1, transition: 'color 0.2s' }}
                                 onMouseEnter={e => e.currentTarget.style.color = '#e88080'}
-                                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                onMouseLeave={e => e.currentTarget.style.color = SETTINGS_SUBTLE}
                               >✕</button>
                             </div>
                           </div>
@@ -1475,21 +1544,25 @@ export default function Dashboard({themeColor}) {
 
                     {/* Add reminder trigger */}
                     {!showAddReminder && (
-                      <div
+                      <button
+                        type="button"
                         onClick={() => setShowAddReminder(true)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '9px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px dashed rgba(255,255,255,0.26)', borderRadius: '9px', cursor: 'pointer', background: 'rgba(255,255,255,0.04)', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.26)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                        aria-label="Add a reminder"
                       >
-                        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '18px', lineHeight: 1, fontWeight: 300 }}>+</span>
-                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>Add a reminder...</span>
-                      </div>
+                        <span style={{ color: SETTINGS_TEXT, fontSize: '18px', lineHeight: 1, fontWeight: 300 }}>+</span>
+                        <span style={{ fontSize: '12px', color: SETTINGS_MUTED }}>Add a reminder...</span>
+                      </button>
                     )}
 
                     {/* Add reminder form */}
                     {showAddReminder && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '9px', padding: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '9px', padding: '12px' }}>
+                        <label htmlFor="settings-reminder-type" style={{ fontSize: '11px', color: SETTINGS_MUTED }}>Reminder type</label>
                         <select
+                          id="settings-reminder-type"
                           value={newRemType}
                           onChange={e => setNewRemType(e.target.value)}
                           style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', color: 'var(--text-color, white)', fontFamily: 'inherit', fontSize: '12px', padding: '7px 10px', cursor: 'pointer', outline: 'none', width: '100%' }}
@@ -1501,7 +1574,9 @@ export default function Dashboard({themeColor}) {
 
                         {newRemType === 'before' && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <label htmlFor="settings-reminder-amount" style={styles.srOnly}>Reminder amount</label>
                             <input
+                              id="settings-reminder-amount"
                               type="number"
                               min="1"
                               max="9999"
@@ -1509,7 +1584,9 @@ export default function Dashboard({themeColor}) {
                               onChange={e => setNewRemAmount(Number(e.target.value) || 1)}
                               style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', color: 'var(--text-color, white)', fontSize: '14px', padding: '6px 10px', outline: 'none', width: '64px', textAlign: 'center' }}
                             />
+                            <label htmlFor="settings-reminder-unit" style={styles.srOnly}>Reminder unit</label>
                             <select
+                              id="settings-reminder-unit"
                               value={newRemUnit}
                               onChange={e => setNewRemUnit(e.target.value)}
                               style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', color: 'var(--text-color, white)', fontFamily: 'inherit', fontSize: '12px', padding: '7px 10px', cursor: 'pointer', outline: 'none' }}
@@ -1519,14 +1596,16 @@ export default function Dashboard({themeColor}) {
                               <option value="days">days</option>
                               <option value="weeks">weeks</option>
                             </select>
-                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>before</span>
+                            <span style={{ fontSize: '11px', color: SETTINGS_MUTED }}>before</span>
                           </div>
                         )}
 
                         {(newRemType === 'dayof' || newRemType === 'daily') && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>At</span>
+                            <span style={{ fontSize: '11px', color: SETTINGS_MUTED }}>At</span>
+                            <label htmlFor="settings-reminder-time" style={styles.srOnly}>Reminder time</label>
                             <input
+                              id="settings-reminder-time"
                               type="time"
                               value={newRemTime}
                               onChange={e => setNewRemTime(e.target.value)}
@@ -1537,16 +1616,18 @@ export default function Dashboard({themeColor}) {
 
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
+                            type="button"
                             onClick={addReminder}
-                            style={{ padding: '7px 16px', borderRadius: '7px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.9)', fontFamily: 'inherit', fontSize: '11px', letterSpacing: '1px', cursor: 'pointer', transition: 'all 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                            style={{ padding: '7px 16px', borderRadius: '7px', background: SETTINGS_PANEL_ALT, border: '1px solid rgba(255,255,255,0.3)', color: SETTINGS_TEXT, fontFamily: 'inherit', fontSize: '11px', letterSpacing: '1px', cursor: 'pointer', transition: 'all 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = SETTINGS_PANEL_ALT}
                           >Add</button>
                           <button
+                            type="button"
                             onClick={() => { setShowAddReminder(false); setNewRemType('before'); setNewRemAmount(15); setNewRemUnit('minutes'); setNewRemTime('09:00'); }}
-                            style={{ padding: '7px 14px', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.4)', fontFamily: 'inherit', fontSize: '11px', cursor: 'pointer', transition: 'all 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-color, white)'}
-                            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                            style={{ padding: '7px 14px', borderRadius: '7px', background: 'transparent', border: '1px solid rgba(255,255,255,0.22)', color: SETTINGS_MUTED, fontFamily: 'inherit', fontSize: '11px', cursor: 'pointer', transition: 'all 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.color = SETTINGS_TEXT}
+                            onMouseLeave={e => e.currentTarget.style.color = SETTINGS_MUTED}
                           >Cancel</button>
                         </div>
                       </div>
@@ -1558,7 +1639,7 @@ export default function Dashboard({themeColor}) {
 
             {settingsTab === 'plant-journal' && (
               <div style={{ padding: settingsPanelPadding, display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: settingsScrollableHeight, overflowY: 'auto' }}>
-                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Plant Journal</div>
+                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: SETTINGS_SUBTLE, marginBottom: '2px' }}>Plant Journal</div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color, white)' }}>Current reward</div>
@@ -1579,7 +1660,7 @@ export default function Dashboard({themeColor}) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color, white)' }}>Completed plants</div>
                   {plantJournalEntries.length === 0 ? (
-                    <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>
+                    <div style={{ padding: '12px 14px', background: SETTINGS_PANEL, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '12px', fontSize: '12px', color: SETTINGS_MUTED }}>
                       No completed plant rewards yet.
                     </div>
                   ) : (
@@ -1593,7 +1674,7 @@ export default function Dashboard({themeColor}) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color, white)' }}>{entry.plantName}</div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)' }}>{formatDuration(entry.durationMs)}</div>
+                            <div style={{ fontSize: '11px', color: SETTINGS_MUTED }}>{formatDuration(entry.durationMs)}</div>
                           </div>
                           <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>Pot: {entry.potName}</div>
                           <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>Started: {formatJournalDateTime(entry.startedAt)}</div>

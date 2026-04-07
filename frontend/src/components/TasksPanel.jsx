@@ -28,6 +28,9 @@ export default function TasksPanel({
   onTasksChanged,
   onAddTasks,
 }) {
+  const editDialogTitleId = "tasks-panel-edit-title";
+  const createGroupTitleId = "tasks-panel-create-group-title";
+  const renameGroupTitleId = "tasks-panel-rename-group-title";
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -109,6 +112,19 @@ export default function TasksPanel({
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (editingTask) cancelEdit();
+      if (creatingGroup) cancelCreateGroup();
+      if (renamingGroup) cancelRenameGroup();
+      if (clearMenuOpen) setClearMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [editingTask, creatingGroup, renamingGroup, clearMenuOpen]);
 
   const getPriorityValue = (task) => {
     if (task.priority === "high") return 3;
@@ -610,10 +626,11 @@ export default function TasksPanel({
             style={styles.groupAddButton}
             onClick={toggleAllGroups}
             title={hasExpandedGroups ? "Collapse all groups" : "Expand all groups"}
+            aria-label={hasExpandedGroups ? "Collapse all task groups" : "Expand all task groups"}
           >
             {hasExpandedGroups ? "Collapse All" : "Expand All"}
           </button>
-          <button style={styles.groupAddButton} onClick={() => onAddTasks?.()}>
+          <button style={styles.groupAddButton} onClick={() => onAddTasks?.()} aria-label="Open add tasks panel">
             <PlusOutlined /> Add Tasks
           </button>
           <div style={styles.clearMenuWrapper} ref={clearMenuRef}>
@@ -621,13 +638,17 @@ export default function TasksPanel({
               style={styles.groupAddButton}
               onClick={() => setClearMenuOpen((prev) => !prev)}
               title="Clear tasks options"
+              aria-haspopup="menu"
+              aria-expanded={clearMenuOpen}
+              aria-label="Open clear tasks options"
             >
               <DeleteOutlined /> Clear
             </button>
             {clearMenuOpen && (
-              <div style={styles.clearMenu}>
+              <div style={styles.clearMenu} role="menu" aria-label="Clear tasks options">
                 <button
                   style={styles.clearMenuItem}
+                  role="menuitem"
                   onClick={async () => {
                     setClearMenuOpen(false);
                     await clearAllTasks();
@@ -637,6 +658,7 @@ export default function TasksPanel({
                 </button>
                 <button
                   style={styles.clearMenuItem}
+                  role="menuitem"
                   onClick={async () => {
                     setClearMenuOpen(false);
                     await clearDoneTasks();
@@ -684,6 +706,8 @@ export default function TasksPanel({
                     style={styles.groupToggleButton}
                     onClick={() => toggleGroupCollapse(section.id)}
                     title={isCollapsed ? "Expand group" : "Collapse group"}
+                    aria-expanded={!isCollapsed}
+                    aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${section.name} group`}
                   >
                     <span style={styles.groupName}>{section.name}</span>
                     <span style={styles.groupMeta}>
@@ -697,6 +721,7 @@ export default function TasksPanel({
                         type="color"
                         value={section.color || "#4F46E5"}
                         title="Group color"
+                        aria-label={`Change color for ${section.name}`}
                         style={styles.groupColorPicker}
                         onChange={(e) => changeGroupColor(section.id, e.target.value)}
                       />
@@ -704,6 +729,7 @@ export default function TasksPanel({
                         style={styles.groupActionBtn}
                         onClick={() => openRenameGroupModal(section)}
                         title="Rename group"
+                        aria-label={`Rename ${section.name} group`}
                       >
                         <EditOutlined />
                       </button>
@@ -711,6 +737,7 @@ export default function TasksPanel({
                         style={styles.groupActionBtn}
                         onClick={() => deleteGroup(section.id)}
                         title="Delete group"
+                        aria-label={`Delete ${section.name} group`}
                       >
                         <DeleteOutlined />
                       </button>
@@ -823,6 +850,7 @@ export default function TasksPanel({
                               style={styles.editButton}
                               onClick={() => handleEdit(task)}
                               title="Edit"
+                              aria-label={`Edit task ${task.title}`}
                             >
                               <EditOutlined />
                             </button>
@@ -830,6 +858,7 @@ export default function TasksPanel({
                               style={styles.checkButton}
                               onClick={() => handleToggleComplete(task.id, task.status)}
                               title="Mark complete"
+                              aria-label={`${isTaskCompleted(task) ? "Mark task as pending" : "Mark task as complete"}: ${task.title}`}
                             >
                               <CheckOutlined />
                             </button>
@@ -837,6 +866,7 @@ export default function TasksPanel({
                               style={styles.deleteButton}
                               onClick={() => handleDeleteTask(task.id)}
                               title="Delete"
+                              aria-label={`Delete task ${task.title}`}
                             >
                               <DeleteOutlined />
                             </button>
@@ -854,7 +884,7 @@ export default function TasksPanel({
 
       {editingTask && (
         <div style={modalStyles.overlay} onClick={cancelEdit}>
-          <div style={modalStyles.editModal} onClick={(e) => e.stopPropagation()}>
+          <div style={modalStyles.editModal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={editDialogTitleId}>
             <div
               style={{
                 display: "flex",
@@ -864,8 +894,9 @@ export default function TasksPanel({
                 flexShrink: 0,
               }}
             >
-              <h3 style={modalStyles.title}>Edit Task</h3>
+              <h3 id={editDialogTitleId} style={modalStyles.title}>Edit Task</h3>
               <button
+                type="button"
                 onClick={cancelEdit}
                 style={{
                   background: "none",
@@ -887,6 +918,7 @@ export default function TasksPanel({
               <div>
                 <label style={modalStyles.label}>Title</label>
                 <input
+                  id="tasks-panel-edit-title-input"
                   style={modalStyles.input}
                   value={editingTask.title || ""}
                   onChange={(e) => handleEditChange("title", e.target.value)}
@@ -906,6 +938,7 @@ export default function TasksPanel({
                   </button>
                 </div>
                 <select
+                  id="tasks-panel-edit-group-input"
                   style={{ ...modalStyles.input, backgroundColor: "rgba(40,40,40,0.5)" }}
                   value={editingTask.group_id || ""}
                   onChange={(e) =>
@@ -927,6 +960,7 @@ export default function TasksPanel({
               <div>
                 <label style={modalStyles.label}>Due date & time</label>
                 <input
+                  id="tasks-panel-edit-due-date-input"
                   type="datetime-local"
                   style={{ ...modalStyles.input, marginBottom: 0 }}
                   value={
@@ -948,6 +982,7 @@ export default function TasksPanel({
               <div>
                 <label style={modalStyles.label}>Priority</label>
                 <select
+                  id="tasks-panel-edit-priority-input"
                   style={{ ...modalStyles.input, backgroundColor: "rgba(40,40,40,0.5)" }}
                   value={editingTask.priority || ""}
                   onChange={(e) => handleEditChange("priority", e.target.value || null)}
@@ -963,6 +998,7 @@ export default function TasksPanel({
                 <div>
                   <label style={modalStyles.label}>Reminder</label>
                   <select
+                    id="tasks-panel-edit-reminder-input"
                     style={{ ...modalStyles.input, backgroundColor: "rgba(40,40,40,0.5)" }}
                     value={editingTask.reminder_offset_minutes ?? ""}
                     onChange={(e) =>
@@ -984,6 +1020,7 @@ export default function TasksPanel({
 
             <div style={{ display: "flex", gap: "12px", flexShrink: 0, marginTop: "20px" }}>
               <button
+                type="button"
                 style={modalStyles.saveBtn}
                 onClick={submitEdit}
                 onMouseEnter={(e) => {
@@ -998,6 +1035,7 @@ export default function TasksPanel({
                 Save
               </button>
               <button
+                type="button"
                 style={modalStyles.cancelBtn}
                 onClick={cancelEdit}
                 onMouseEnter={(e) => {
@@ -1016,7 +1054,7 @@ export default function TasksPanel({
 
       {creatingGroup && (
         <div style={modalStyles.overlay} onClick={cancelCreateGroup}>
-          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={createGroupTitleId}>
             <div
               style={{
                 display: "flex",
@@ -1025,8 +1063,9 @@ export default function TasksPanel({
                 marginBottom: 24,
               }}
             >
-              <h3 style={modalStyles.title}>Create Group</h3>
+              <h3 id={createGroupTitleId} style={modalStyles.title}>Create Group</h3>
               <button
+                type="button"
                 onClick={cancelCreateGroup}
                 style={{
                   background: "none",
@@ -1055,6 +1094,7 @@ export default function TasksPanel({
               <div>
                 <label style={modalStyles.label}>Group Name</label>
                 <input
+                  id="tasks-panel-create-group-name"
                   style={{ ...modalStyles.input, marginBottom: 0 }}
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
@@ -1065,6 +1105,7 @@ export default function TasksPanel({
               <div>
                 <label style={modalStyles.label}>Group Color</label>
                 <input
+                  id="tasks-panel-create-group-color"
                   type="color"
                   value={newGroupColor}
                   onChange={(e) => setNewGroupColor(e.target.value)}
@@ -1082,6 +1123,7 @@ export default function TasksPanel({
 
             <div style={{ display: "flex", gap: "12px" }}>
               <button
+                type="button"
                 style={modalStyles.saveBtn}
                 onClick={submitCreateGroup}
                 onMouseEnter={(e) => {
@@ -1096,6 +1138,7 @@ export default function TasksPanel({
                 Create
               </button>
               <button
+                type="button"
                 style={modalStyles.cancelBtn}
                 onClick={cancelCreateGroup}
                 onMouseEnter={(e) => {
@@ -1114,7 +1157,7 @@ export default function TasksPanel({
 
       {renamingGroup && (
         <div style={modalStyles.overlay} onClick={cancelRenameGroup}>
-          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={renameGroupTitleId}>
             <div
               style={{
                 display: "flex",
@@ -1123,8 +1166,9 @@ export default function TasksPanel({
                 marginBottom: 24,
               }}
             >
-              <h3 style={modalStyles.title}>Rename Group</h3>
+              <h3 id={renameGroupTitleId} style={modalStyles.title}>Rename Group</h3>
               <button
+                type="button"
                 onClick={cancelRenameGroup}
                 style={{
                   background: "none",
@@ -1153,6 +1197,7 @@ export default function TasksPanel({
               <div>
                 <label style={modalStyles.label}>Group Name</label>
                 <input
+                  id="tasks-panel-rename-group-name"
                   style={{ ...modalStyles.input, marginBottom: 0 }}
                   value={renameGroupName}
                   onChange={(e) => setRenameGroupName(e.target.value)}
@@ -1163,6 +1208,7 @@ export default function TasksPanel({
 
             <div style={{ display: "flex", gap: "12px" }}>
               <button
+                type="button"
                 style={modalStyles.saveBtn}
                 onClick={submitRenameGroup}
                 onMouseEnter={(e) => {
@@ -1177,6 +1223,7 @@ export default function TasksPanel({
                 Save
               </button>
               <button
+                type="button"
                 style={modalStyles.cancelBtn}
                 onClick={cancelRenameGroup}
                 onMouseEnter={(e) => {

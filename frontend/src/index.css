@@ -19,7 +19,7 @@ body {
 }
 
 /* Smooth text rendering */
-body, button, input, textarea {
+body, button, input, textarea, select {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -32,9 +32,23 @@ button {
   font-family: inherit;
 }
 
-input, textarea {
+input, textarea, select {
   font-family: inherit;
   outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(35, 49, 39, 0.75);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  box-shadow: 0 0 0 3px rgba(218, 235, 222, 0.95);
 }
 
 /* Scrollbar styling for panels */

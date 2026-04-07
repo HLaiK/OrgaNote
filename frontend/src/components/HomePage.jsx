@@ -4,6 +4,7 @@ import { apiFetch } from "../api";
 export default function HomePage({ onFinish, themeColor }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const inputId = "homepage-task-input";
 
   const handleOrganize = async () => {
     if (!input.trim()) return;
@@ -35,8 +36,9 @@ export default function HomePage({ onFinish, themeColor }) {
         <h1 style={styles.title}>OrgaNote</h1>
         <p style={styles.subtitle}>Organize your thoughts</p>
         
-        <label style={styles.label}>What do you need done?</label>
+        <label htmlFor={inputId} style={styles.label}>What do you need done?</label>
         <textarea
+          id={inputId}
           style={styles.textarea}
           placeholder="Enter task here"
           value={input}
@@ -44,9 +46,11 @@ export default function HomePage({ onFinish, themeColor }) {
         />
 
         <button
+          type="button"
           style={styles.button}
           onClick={handleOrganize}
           disabled={loading}
+          aria-label={loading ? "Organizing tasks" : "Organize tasks"}
         >
           {loading ? "Organizing..." : "Organize!"}
         </button>
@@ -81,7 +85,7 @@ const styles = {
   },
   subtitle: {
     fontSize: "1.2rem",
-    color: "var(--text-color, rgba(255, 255, 255, 0.85))",
+    color: "var(--text-color, rgba(255, 255, 255, 0.94))",
     marginBottom: "2rem",
     fontWeight: "300",
     letterSpacing: "1px"
@@ -89,7 +93,7 @@ const styles = {
   label: {
     display: "block",
     fontSize: "0.95rem",
-    color: "var(--text-color, rgba(255, 255, 255, 0.8))",
+    color: "var(--text-color, rgba(255, 255, 255, 0.94))",
     marginBottom: "1rem",
     fontWeight: "400"
   },

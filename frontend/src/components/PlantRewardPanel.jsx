@@ -89,6 +89,8 @@ function RewardCarousel({ options, onSelect, selectedId, renderLabel, renderImag
               key={option.id}
               type="button"
               onClick={() => onSelect(option.id)}
+              aria-pressed={isSelected}
+              aria-label={`${isSelected ? "Selected" : "Choose"} ${renderLabel(option)}`}
               style={{
                 ...styles.choiceCard,
                 ...(isSelected ? styles.choiceCardSelected : null),
@@ -346,11 +348,11 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
   };
 
   return (
-    <div style={styles.container}>
+    <section style={styles.container} aria-labelledby="plant-reward-heading" aria-describedby="plant-reward-summary">
       <div style={styles.headerRow}>
         <div>
-          <h4 style={styles.title}>Plant reward</h4>
-          {setupHint ? <p style={styles.subtitle}>{setupHint}</p> : null}
+          <h4 id="plant-reward-heading" style={styles.title}>Plant reward</h4>
+          {setupHint ? <p id="plant-reward-summary" style={styles.subtitle}>{setupHint}</p> : <p id="plant-reward-summary" style={styles.subtitle}>Complete tasks to build and grow your next plant reward.</p>}
         </div>
         {(rewardState.selectedPlantId || rewardState.selectedPotId) && (
             <div style={{ ...styles.headerActions, width: isPhone ? "100%" : "auto", justifyContent: isPhone ? "space-between" : "flex-end", flexWrap: "wrap" }}>
@@ -382,11 +384,12 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
                 style={styles.iconButton}
                 title="Show reward info"
                 aria-label="Show reward info"
+                aria-expanded={infoOpen}
               >
                 <InfoCircleOutlined />
               </button>
             </Popconfirm>
-            <button type="button" onClick={handleResetReward} style={styles.secondaryButton}>
+            <button type="button" onClick={handleResetReward} style={styles.secondaryButton} aria-label="Reset current plant reward">
               Reset
             </button>
           </div>
@@ -396,7 +399,7 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
       {rewardState.step !== REWARD_FLOW.CHOOSE_PLANT && rewardState.step !== REWARD_FLOW.CHOOSE_POT ? (
         <div style={styles.heroCard}>
           <span style={styles.stepBadge}>{getStepLabel(rewardState.step)}</span>
-          {heroImage ? <img src={heroImage} alt={getStepLabel(rewardState.step)} style={styles.heroImage} /> : null}
+          {heroImage ? <img src={heroImage} alt={`${getStepLabel(rewardState.step)} for ${selectedPlant?.name || "plant reward"}${selectedPot ? ` in ${selectedPot.name}` : ""}`} style={styles.heroImage} /> : null}
           {selectedPlant && selectedPot ? (
             <div style={styles.selectionRow}>
               <span style={styles.selectionPill}>{selectedPlant.name}</span>
@@ -411,29 +414,33 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
       )}
 
       {rewardState.step === REWARD_FLOW.CHOOSE_PLANT && (
-        <RewardCarousel
-          options={PLANTS}
-          selectedId={rewardState.selectedPlantId}
-          onSelect={handleChoosePlant}
-          renderLabel={(plant) => plant.name}
-          renderImage={(plant) => plant.icon}
-        />
+        <div role="group" aria-label="Choose a plant">
+          <RewardCarousel
+            options={PLANTS}
+            selectedId={rewardState.selectedPlantId}
+            onSelect={handleChoosePlant}
+            renderLabel={(plant) => plant.name}
+            renderImage={(plant) => plant.icon}
+          />
+        </div>
       )}
 
       {rewardState.step === REWARD_FLOW.CHOOSE_POT && (
-        <RewardCarousel
-          options={POTS}
-          selectedId={rewardState.selectedPotId}
-          onSelect={handleChoosePot}
-          renderLabel={(pot) => pot.name}
-          renderImage={(pot) => pot.baseImage}
-        />
+        <div role="group" aria-label="Choose a pot">
+          <RewardCarousel
+            options={POTS}
+            selectedId={rewardState.selectedPotId}
+            onSelect={handleChoosePot}
+            renderLabel={(pot) => pot.name}
+            renderImage={(pot) => pot.baseImage}
+          />
+        </div>
       )}
 
       {rewardState.step === REWARD_FLOW.ADD_SOIL && (
         <div style={styles.actionCard}>
           <img src={actionImage} alt="Bag of soil" style={styles.actionImage} />
-          <button type="button" style={styles.primaryButton} onClick={() => advanceSetup(REWARD_FLOW.ADD_SEEDS)}>
+          <button type="button" style={styles.primaryButton} onClick={() => advanceSetup(REWARD_FLOW.ADD_SEEDS)} aria-label="Add soil to the selected pot">
             Add soil
           </button>
         </div>
@@ -442,7 +449,7 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
       {rewardState.step === REWARD_FLOW.ADD_SEEDS && (
         <div style={styles.actionCard}>
           <img src={actionImage} alt="Seed packet" style={styles.actionImage} />
-          <button type="button" style={styles.primaryButton} onClick={() => advanceSetup(REWARD_FLOW.WATER)}>
+          <button type="button" style={styles.primaryButton} onClick={() => advanceSetup(REWARD_FLOW.WATER)} aria-label="Add seeds to start the selected plant">
             Add seeds
           </button>
         </div>
@@ -451,7 +458,7 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
       {rewardState.step === REWARD_FLOW.WATER && (
         <div style={styles.actionCard}>
           <img src={actionImage} alt="Watering can" style={styles.actionImage} />
-          <button type="button" style={styles.primaryButton} onClick={startGrowth}>
+          <button type="button" style={styles.primaryButton} onClick={startGrowth} aria-label="Start growing the selected plant reward">
             Start growing
           </button>
         </div>
@@ -461,13 +468,13 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
         <div style={styles.completeCard}>
           <strong style={styles.completeTitle}>Reward complete</strong>
           <span style={styles.completeText}>This plant is fully grown. Start another one whenever you want.</span>
-          <button type="button" style={styles.primaryButton} onClick={handleResetReward}>
+          <button type="button" style={styles.primaryButton} onClick={handleResetReward} aria-label="Start a new plant reward">
             Grow another plant
           </button>
         </div>
       )}
 
-      <div style={styles.statRow}>
+      <div style={styles.statRow} aria-label="Plant reward progress summary">
         <div style={styles.statCard}>
           <span style={styles.statLabel}>Tasks left total</span>
           <strong style={styles.statValue}>{totalTasksLeft}</strong>
@@ -481,7 +488,7 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
       </div>
 
       {(rewardState.step === REWARD_FLOW.GROWING || rewardState.step === REWARD_FLOW.COMPLETE) && (
-        <div style={styles.progressBlock}>
+        <div style={styles.progressBlock} role="status" aria-live="polite">
           <div style={{ ...styles.progressHeader, flexWrap: isPhone ? "wrap" : "nowrap", gap: isPhone ? "4px" : 0 }}>
             <span>
               Growth: {rewardState.growthTasksEarned}/{growthGoal}
@@ -494,11 +501,12 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
                 ...styles.progressFill,
                 width: `${growthGoal > 0 ? (rewardState.growthTasksEarned / growthGoal) * 100 : 0}%`,
               }}
+              aria-hidden="true"
             />
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -525,7 +533,7 @@ const styles = {
     margin: "4px 0 0",
     fontSize: "0.78rem",
     lineHeight: 1.45,
-    color: "rgba(42, 42, 42, 0.72)",
+    color: "rgba(42, 42, 42, 0.84)",
   },
   headerActions: {
     display: "flex",
@@ -560,7 +568,7 @@ const styles = {
   },
   statLabel: {
     fontSize: "0.72rem",
-    color: "rgba(42, 42, 42, 0.66)",
+    color: "rgba(42, 42, 42, 0.82)",
     textTransform: "uppercase",
     letterSpacing: "0.04em",
   },
@@ -711,7 +719,7 @@ const styles = {
   },
   footerNote: {
     fontSize: "0.78rem",
-    color: "rgba(42, 42, 42, 0.72)",
+    color: "rgba(42, 42, 42, 0.84)",
     lineHeight: 1.45,
     background: "rgba(255,255,255,0.32)",
     borderRadius: "12px",
@@ -733,7 +741,7 @@ const styles = {
   completeText: {
     fontSize: "0.78rem",
     lineHeight: 1.45,
-    color: "rgba(42, 42, 42, 0.72)",
+    color: "rgba(42, 42, 42, 0.84)",
   },
   infoBody: {
     display: "flex",
