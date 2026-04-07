@@ -15,7 +15,10 @@ WORKDIR /app
 RUN npm install -g serve
 
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/package*.json ./
+RUN npm ci --only=production
+COPY frontend/server.js ./server.js
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "serve -s dist -l tcp://0.0.0.0:$PORT"]
+CMD ["node", "server.js"]
