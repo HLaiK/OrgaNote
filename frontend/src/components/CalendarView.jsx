@@ -652,6 +652,9 @@ export default function CalendarView({
               const inMonth = day.month() === anchorDate.month();
               const isToday = day.isSame(dayjs(), "day");
               const dayTasks = tasksForDay(day);
+              const monthCellBackground = isToday
+                ? "rgba(160, 183, 196, 0.24)"
+                : "transparent";
               return (
                 <div
                   key={day.format("YYYY-MM-DD")}
@@ -662,10 +665,13 @@ export default function CalendarView({
                     padding: "4px 6px",
                     overflow: "hidden",
                     cursor: inMonth ? "pointer" : "default",
+                    background: monthCellBackground,
                     borderLeft: day.day() === 0 ? "1px solid rgba(255,255,255,0.14)" : "none",
-                    borderRight: "1px solid rgba(255,255,255,0.14)",
-                    borderBottom: "1px solid rgba(255,255,255,0.14)",
+                    borderRight: isToday ? "1px solid rgba(155, 186, 215, 0.55)" : "1px solid rgba(255,255,255,0.14)",
+                    borderBottom: isToday ? "1px solid rgba(164, 213, 225, 0.55)" : "1px solid rgba(255,255,255,0.14)",
                     boxSizing: "border-box",
+                    boxShadow: isToday ? "inset 0 0 0 1px rgba(168, 197, 232, 0.55)" : "none",
+                    transition: "background 0.2s ease, box-shadow 0.2s ease",
                   }}
                 >
                   <div style={{
@@ -673,7 +679,7 @@ export default function CalendarView({
                     fontWeight: isToday ? 700 : 500,
                     lineHeight: "1.4",
                     flexShrink: 0,
-                    color: isToday ? "var(--btn-color, #A7C4A0)" : "var(--text-color, rgba(255,255,255,0.75))",
+                    color: isToday ? "var(--btn-color, #a0bdc4)" : "var(--text-color, rgba(255,255,255,0.75))",
                   }}>
                     {day.format("D")}
                   </div>
@@ -847,40 +853,56 @@ export default function CalendarView({
           <div style={{ display: "flex", flexDirection: "column", gap: "2px", overflow: "auto", flex: 1 }}>
             {/* Day Headers */}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${rangeDays.length}, minmax(140px, 1fr))`, gap: "2px", padding: "8px", paddingBottom: "4px", position: "sticky", top: 0, background: "rgba(255,255,255,0.08)", zIndex: 10 }}>
-              {rangeDays.map((day) => (
-                <div key={`header-${day.format("YYYY-MM-DD")}`} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-color, rgba(255,255,255,0.6))", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              {rangeDays.map((day) => {
+                const isToday = day.isSame(dayjs(), "day");
+                return (
+                <div
+                  key={`header-${day.format("YYYY-MM-DD")}`}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    borderRadius: "8px",
+                    padding: "6px 4px",
+                    background: isToday ? "rgba(154, 215, 227, 0.24)" : "transparent",
+                    boxShadow: isToday ? "inset 0 0 0 1px rgba(165, 210, 233, 0.55)" : "none",
+                  }}
+                >
+                  <div style={{ fontSize: "0.75rem", color: isToday ? "var(--text-color, #2A2A2A)" : "var(--text-color, rgba(255,255,255,0.6))", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     {day.format("ddd")}
                   </div>
-                  <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-color, white)", marginTop: "2px" }}>
+                  <div style={{ fontSize: "1rem", fontWeight: 700, color: isToday ? "var(--text-color, #2A2A2A)" : "var(--text-color, white)", marginTop: "2px" }}>
                     {day.format("D")}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
 
             {/* Day Content */}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${rangeDays.length}, minmax(140px, 1fr))`, gap: "2px", padding: "8px", flex: 1 }}>
               {rangeDays.map((day) => {
                 const dayTasks = tasksForDay(day);
+                const isToday = day.isSame(dayjs(), "day");
+                const baseDayBackground = isToday ? "rgba(154, 215, 227, 0.24)" : "rgba(255,255,255,0.06)";
                 return (
                   <div
                     key={day.format("YYYY-MM-DD")}
                     onClick={() => openAddTaskModal(day)}
                     style={{
-                      border: "1px solid rgba(255,255,255,0.15)",
+                      border: isToday ? "1px solid rgba(169, 201, 231, 0.55)" : "1px solid rgba(255,255,255,0.15)",
                       borderRadius: "6px",
                       padding: "6px",
-                      background: "rgba(255,255,255,0.06)",
+                      background: baseDayBackground,
                       minHeight: "120px",
                       display: "flex",
                       flexDirection: "column",
                       gap: "4px",
                       cursor: "pointer",
-                      transition: "background 0.2s",
+                      boxShadow: isToday ? "inset 0 0 0 1px rgba(149, 212, 228, 0.45)" : "none",
+                      transition: "background 0.2s, box-shadow 0.2s",
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = isToday ? "rgba(167,196,160,0.3)" : "rgba(255,255,255,0.1)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = baseDayBackground; }}
                   >
                     {dayTasks.length === 0 ? (
                       <div style={{ fontSize: "0.7rem", color: "var(--text-color, rgba(255,255,255,0.3))", padding: "20px 4px", textAlign: "center" }}>

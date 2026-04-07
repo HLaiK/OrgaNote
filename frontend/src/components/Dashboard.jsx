@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ToolOutlined, CloseOutlined, PictureOutlined } from "@ant-design/icons";
+import { ToolOutlined, CloseOutlined, PictureOutlined, CalendarOutlined } from "@ant-design/icons";
 import CalendarPanel from "./CalendarPanel";
 import ProgressPanel from "./ProgressPanel";
 import TasksPanel from "./TasksPanel";
@@ -8,6 +8,7 @@ import CalendarView from "./CalendarView";
 import UnstructuredInput from "./UnstructuredInputPanel";
 import { theme } from "../theme";
 import { apiFetch } from "../api";
+import { getPlantById, getPlantStages, getPotById, REWARD_FLOW } from "../rewards/plantRewardCatalog";
 
 const styles = {
   container: {
@@ -60,9 +61,9 @@ const styles = {
     fontSize: "1.5rem",
     fontWeight: "bold",
     color: "var(--text-color, white)",
-    fontStyle: "italic",
+    fontStyle: "normal",
     margin: 0,
-    fontFamily: "'Brush Script MT', cursive",
+    fontFamily: "inherit",
     letterSpacing: "1px"
   },
 
@@ -249,6 +250,14 @@ export default function Dashboard({themeColor}) {
       return 'list';
     }
   });
+  const [showMiniCalendar, setShowMiniCalendar] = useState(() => {
+    try {
+      const saved = localStorage.getItem('organote_show_mini_calendar');
+      return saved === null ? true : saved === 'true';
+    } catch (e) {
+      return true;
+    }
+  });
   // Flag to prevent persist effects from running during initialization
   const isInitialMount = React.useRef(true);
   // Load notification settings from localStorage on initial render
@@ -284,6 +293,8 @@ export default function Dashboard({themeColor}) {
   const [bgImageName, setBgImageName] = useState(() => {
     try { return localStorage.getItem('organote_bg_image_name') || ''; } catch (e) { return ''; }
   });
+  const [plantJournalEntries, setPlantJournalEntries] = useState([]);
+  const [activeRewardSnapshot, setActiveRewardSnapshot] = useState(null);
   const hasTaskReminder = (task) =>
     task?.due_date && task?.reminder_offset_minutes !== null && task?.reminder_offset_minutes !== undefined;
   const pushReminder = (title, body, tag) => {
@@ -699,8 +710,66 @@ export default function Dashboard({themeColor}) {
     setReminders(prev => prev.filter(r => r.id !== id));
   };
 
+  const loadPlantJournalData = React.useCallback(() => {
+    try {
+      const userId = localStorage.getItem("organote_user_id") || "guest";
+      const journalRaw = localStorage.getItem(`organote_plant_journal_v1_${userId}`);
+      const rewardRaw = localStorage.getItem(`organote_reward_state_v1_${userId}`);
+      const journal = journalRaw ? JSON.parse(journalRaw) : [];
+      const rewardState = rewardRaw ? JSON.parse(rewardRaw) : null;
+      setPlantJournalEntries(Array.isArray(journal) ? journal : []);
+      setActiveRewardSnapshot(rewardState);
+    } catch (e) {
+      setPlantJournalEntries([]);
+      setActiveRewardSnapshot(null);
+    }
+  }, []);
+
   const handleTasksChanged = () => {
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  useEffect(() => {
+    loadPlantJournalData();
+  }, [loadPlantJournalData, showSettings]);
+
+  useEffect(() => {
+    const handleJournalUpdate = () => loadPlantJournalData();
+    window.addEventListener("organote-plant-journal-updated", handleJournalUpdate);
+    return () => window.removeEventListener("organote-plant-journal-updated", handleJournalUpdate);
+  }, [loadPlantJournalData]);
+
+  const formatJournalDateTime = (iso) => {
+    if (!iso) return "Not started";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "Not available";
+    return date.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const formatDuration = (durationMs) => {
+    if (!durationMs && durationMs !== 0) return "In progress";
+    const totalMinutes = Math.max(Math.round(durationMs / 60000), 0);
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (hours) parts.push(`${hours}h`);
+    if (minutes || parts.length === 0) parts.push(`${minutes}m`);
+    return parts.join(' ');
+  };
+
+  const activeJournalPlant = activeRewardSnapshot?.selectedPlantId ? getPlantById(activeRewardSnapshot.selectedPlantId) : null;
+  const activeJournalPot = activeRewardSnapshot?.selectedPotId ? getPotById(activeRewardSnapshot.selectedPotId) : null;
+  const getJournalEntryImage = (entry) => {
+    const stages = getPlantStages(entry.plantId, entry.potId);
+    return stages.length > 0 ? stages[stages.length - 1] : null;
   };
 
   // Persist view mode to localStorage when it changes
@@ -711,6 +780,14 @@ export default function Dashboard({themeColor}) {
       console.error('Error saving view mode:', e);
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('organote_show_mini_calendar', showMiniCalendar ? 'true' : 'false');
+    } catch (e) {
+      console.error('Error saving mini calendar visibility:', e);
+    }
+  }, [showMiniCalendar]);
 
   const containerStyle = bgImage
     ? {
@@ -727,9 +804,11 @@ export default function Dashboard({themeColor}) {
       {/* LEFT SIDEBAR */}
       <div style={styles.sidebar}>
         {/* Calendar */}
-        <div style={styles.panel}>
-          <CalendarPanel />
-        </div>
+        {showMiniCalendar && (
+          <div style={styles.panel}>
+            <CalendarPanel />
+          </div>
+        )}
 
         {/* Progress */}
         <div style={styles.panel}>
@@ -1044,7 +1123,7 @@ export default function Dashboard({themeColor}) {
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: '4px', fontWeight: 400 }}>Preferences</div>
-                <h3 style={{ margin: 0, fontSize: '1.5rem', fontStyle: 'italic', fontFamily: "'Brush Script MT', cursive", color: 'var(--text-color, white)', lineHeight: 1 }}>Settings</h3>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontStyle: 'normal', fontFamily: 'inherit', color: 'var(--text-color, white)', lineHeight: 1 }}>Settings</h3>
               </div>
               <button
                 onClick={() => setShowSettings(false)}
@@ -1056,7 +1135,7 @@ export default function Dashboard({themeColor}) {
 
             {/* Tabs */}
             <div style={{ display: 'flex', padding: '0 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              {['display', 'alerts'].map(tab => (
+              {['display', 'alerts', 'plant-journal'].map(tab => (
                 <button
                   key={tab}
                   onClick={() => setSettingsTab(tab)}
@@ -1075,7 +1154,7 @@ export default function Dashboard({themeColor}) {
                     fontFamily: 'inherit',
                   }}
                 >
-                  {tab === 'display' ? 'Display' : 'Alerts'}
+                  {tab === 'display' ? 'Display' : tab === 'alerts' ? 'Alerts' : 'Plant Journal'}
                 </button>
               ))}
             </div>
@@ -1084,6 +1163,23 @@ export default function Dashboard({themeColor}) {
             {settingsTab === 'display' && (
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Appearance</div>
+
+                {/* Mini Calendar Toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '30px', height: '30px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.8)', flexShrink: 0 }}><CalendarOutlined /></div>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-color, white)' }}>Show Mini Calendar</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', marginTop: '2px' }}>Toggle sidebar calendar visibility</div>
+                    </div>
+                  </div>
+                  <div
+                    onClick={() => setShowMiniCalendar(prev => !prev)}
+                    style={{ width: '44px', height: '24px', borderRadius: '12px', background: showMiniCalendar ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.15)', border: `1px solid ${showMiniCalendar ? 'var(--btn-color, #A7C4A0)' : 'rgba(255,255,255,0.2)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.3s', flexShrink: 0 }}
+                  >
+                    <div style={{ position: 'absolute', top: '3px', left: showMiniCalendar ? '23px' : '3px', width: '18px', height: '18px', borderRadius: '50%', background: 'white', transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
+                  </div>
+                </div>
 
                 {/* Background Color */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
@@ -1325,6 +1421,56 @@ export default function Dashboard({themeColor}) {
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {settingsTab === 'plant-journal' && (
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '480px', overflowY: 'auto' }}>
+                <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Plant Journal</div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color, white)' }}>Current reward</div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>
+                    Plant: {activeJournalPlant?.name || 'None selected'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>
+                    Pot: {activeJournalPot?.name || 'None selected'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>
+                    Started: {formatJournalDateTime(activeRewardSnapshot?.startedAt)}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>
+                    Status: {activeRewardSnapshot?.step === REWARD_FLOW.COMPLETE ? 'Completed' : activeRewardSnapshot?.selectedPlantId ? 'Growing' : 'Not started'}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color, white)' }}>Completed plants</div>
+                  {plantJournalEntries.length === 0 ? (
+                    <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>
+                      No completed plant rewards yet.
+                    </div>
+                  ) : (
+                    plantJournalEntries.map((entry) => (
+                      <div key={entry.id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                        <div style={{ width: '64px', height: '64px', flexShrink: 0, borderRadius: '10px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                          {getJournalEntryImage(entry) ? (
+                            <img src={getJournalEntryImage(entry)} alt={`${entry.plantName} in ${entry.potName}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          ) : null}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-color, white)' }}>{entry.plantName}</div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)' }}>{formatDuration(entry.durationMs)}</div>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>Pot: {entry.potName}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>Started: {formatJournalDateTime(entry.startedAt)}</div>
+                          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)' }}>Finished: {formatJournalDateTime(entry.completedAt)}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </div>

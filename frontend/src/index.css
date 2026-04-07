@@ -8,7 +8,7 @@
 /* App background matches your sketch */
 body {
   background-color: var(--bg-color, #A7C4A0); /* soft green */
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Raleway', sans-serif;
   color: var(--text-color, #2A2A2A);
   margin: 0;
   padding: 0;
