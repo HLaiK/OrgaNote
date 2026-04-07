@@ -194,7 +194,7 @@ router.post("/organize", async (req, res) => {
     res.json({ created });
   } catch (err) {
     console.error("TEMP NLP ERROR:", err);
-    res.status(400).json({ error: "Failed to process NLP input" });
+    res.status(500).json({ error: "Failed to process NLP input" });
   }
 });
 

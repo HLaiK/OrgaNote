@@ -24,6 +24,24 @@ const pool = require("./db/db");
 async function ensureSchema() {
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id SERIAL PRIMARY KEY,
+        raw_input TEXT,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT,
+        priority INTEGER,
+        due_date TIMESTAMPTZ,
+        reminder_offset_minutes INTEGER,
+        status TEXT DEFAULT 'pending',
+        user_id TEXT,
+        group_id INTEGER,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS task_groups (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
@@ -34,21 +52,37 @@ async function ensureSchema() {
       )
     `);
 
-    await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS group_id INTEGER");
     await pool.query(
-      `ALTER TABLE tasks
+      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS group_id INTEGER",
+    );
+    await pool
+      .query(
+        `ALTER TABLE tasks
        ADD CONSTRAINT tasks_group_id_fkey
        FOREIGN KEY (group_id)
        REFERENCES task_groups(id)
        ON DELETE SET NULL`,
-    ).catch(() => {});
+      )
+      .catch(() => {});
+
+    await pool.query(
+      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_offset_minutes INTEGER",
+    );
   } catch (err) {
     console.error("Schema ensure error:", err);
+    throw err;
   }
 }
 
-ensureSchema();
+async function startServer() {
+  await ensureSchema();
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Server startup failed:", err);
+  process.exit(1);
 });
