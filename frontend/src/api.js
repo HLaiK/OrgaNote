@@ -1,15 +1,25 @@
-const defaultApiBaseUrl = import.meta.env.DEV
-  ? "http://localhost:3002/api"
-  : "/api";
+function getApiBaseUrl() {
+  const defaultApiBaseUrl = import.meta.env.DEV
+    ? "http://localhost:3002/api"
+    : "/api";
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || defaultApiBaseUrl
-).replace(/\/$/, "");
+  const runtimeApiBaseUrl =
+    typeof window !== "undefined"
+      ? window.__APP_CONFIG__?.VITE_API_URL
+      : undefined;
+
+  return (
+    runtimeApiBaseUrl ||
+    import.meta.env.VITE_API_URL ||
+    defaultApiBaseUrl
+  ).replace(/\/$/, "");
+}
 
 export async function apiFetch(path, options = {}) {
   const userId = localStorage.getItem("organote_user_id");
+  const apiBaseUrl = getApiBaseUrl();
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${apiBaseUrl}${path}`, {
     method: options.method || "GET",
     headers: {
       "Content-Type": "application/json",
