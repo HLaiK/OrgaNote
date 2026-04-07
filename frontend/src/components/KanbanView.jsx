@@ -6,6 +6,7 @@ import {
   PlusOutlined,
 } from "@ant-design/icons";
 import { apiFetch } from "../api";
+import useViewport from "../hooks/useViewport";
 
 const UNGROUPED_ID = "__ungrouped__";
 const TASK_REMINDER_OPTIONS = [
@@ -27,6 +28,7 @@ export default function KanbanView({
   onTasksChanged,
   onAddTasks,
 }) {
+  const { isPhone, isTablet, isLandscape } = useViewport();
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,8 @@ export default function KanbanView({
   const [clearMenuOpen, setClearMenuOpen] = useState(false);
   const clearMenuRef = useRef(null);
   const boardRef = useRef(null);
+  const isPhoneLandscape = isPhone && isLandscape;
+  const compactBoardMaxHeight = isPhone ? "62vh" : isTablet ? "68vh" : null;
 
   const columns = [
     { id: "pending", title: "To Do", color: "var(--text-color, #2A2A2A)" },
@@ -670,12 +674,13 @@ export default function KanbanView({
           justifyContent: "space-between",
           alignItems: "center",
           gap: "10px",
+          flexWrap: "wrap",
         }}
       >
         <span style={{ color: "var(--text-color, #2A2A2A)", fontWeight: "600", fontSize: "0.9rem" }}>
           Task Groups
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           <button
             style={{
               display: "flex",
@@ -790,14 +795,16 @@ export default function KanbanView({
         ref={boardRef}
         onDragOver={(e) => autoScrollBoard(e.clientX, e.clientY)}
         style={{
-          display: "flex",
+          display: isPhoneLandscape ? "grid" : "flex",
+          gridTemplateColumns: isPhoneLandscape ? "repeat(2, minmax(0, 1fr))" : undefined,
           alignItems: "flex-start",
-          gap: "12px",
-          overflowX: "scroll",
+          gap: isPhoneLandscape ? "8px" : "12px",
+          overflowX: isPhoneLandscape ? "hidden" : "scroll",
           overflowY: "auto",
           padding: "0 4px 8px 4px",
           flex: 1,
           minHeight: 0,
+          maxHeight: compactBoardMaxHeight || undefined,
         }}
       >
         {columns.map((col) => (
@@ -806,27 +813,28 @@ export default function KanbanView({
             onDragOver={(e) => handleDragOver(e, col.id)}
             onDrop={(e) => handleDrop(e, col.id)}
             style={{
-              minWidth: "220px",
-              flex: "1 1 auto",
+              minWidth: isPhoneLandscape ? 0 : "220px",
+              flex: isPhoneLandscape ? undefined : "1 1 auto",
               background:
                 dragOver === col.id ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.05)",
               border: `2px solid ${
                 dragOver === col.id ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.1)"
               }`,
               borderRadius: "10px",
-              padding: "12px",
+              padding: isPhoneLandscape ? "8px" : "12px",
               transition: "all 0.2s ease",
               display: "flex",
               flexDirection: "column",
+              minHeight: isPhoneLandscape ? "calc((62vh - 24px) / 2)" : undefined,
             }}
           >
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "8px",
-                marginBottom: "12px",
-                paddingBottom: "10px",
+                gap: isPhoneLandscape ? "6px" : "8px",
+                marginBottom: isPhoneLandscape ? "8px" : "12px",
+                paddingBottom: isPhoneLandscape ? "6px" : "10px",
                 borderBottom: `2px solid ${col.color}`,
                 flexShrink: 0,
               }}
@@ -843,7 +851,7 @@ export default function KanbanView({
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "0.9rem",
+                  fontSize: isPhoneLandscape ? "0.78rem" : "0.9rem",
                   fontWeight: "600",
                   color: "var(--text-color, #2A2A2A)",
                   flex: 1,
@@ -857,10 +865,10 @@ export default function KanbanView({
               </h3>
               <span
                 style={{
-                  fontSize: "0.75rem",
+                  fontSize: isPhoneLandscape ? "0.68rem" : "0.75rem",
                   background: "rgba(255, 255, 255, 0.1)",
                   color: "var(--text-color, #2A2A2A)",
-                  padding: "2px 8px",
+                  padding: isPhoneLandscape ? "2px 6px" : "2px 8px",
                   borderRadius: "10px",
                   fontWeight: "600",
                   flexShrink: 0,
@@ -870,14 +878,14 @@ export default function KanbanView({
               </span>
             </div>
 
-            <div className="kanban-column" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div className="kanban-column" style={{ display: "flex", flexDirection: "column", gap: isPhoneLandscape ? "8px" : "10px", minHeight: 0, overflowY: "auto" }}>
               {getVisibleGroupedSectionsByStatus(col.id).length === 0 ? (
                 <div
                   style={{
                     textAlign: "center",
                     color: "var(--text-color, rgba(42, 42, 42, 0.5))",
-                    padding: "24px 12px",
-                    fontSize: "0.9rem",
+                    padding: isPhoneLandscape ? "16px 8px" : "24px 12px",
+                    fontSize: isPhoneLandscape ? "0.78rem" : "0.9rem",
                   }}
                 >
                   No tasks
@@ -909,9 +917,9 @@ export default function KanbanView({
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          gap: "8px",
+                          gap: isPhoneLandscape ? "6px" : "8px",
                           borderLeft: `4px solid ${section.color}`,
-                          paddingLeft: "8px",
+                          paddingLeft: isPhoneLandscape ? "6px" : "8px",
                           marginBottom: isCollapsed ? 0 : "8px",
                         }}
                       >
@@ -926,21 +934,22 @@ export default function KanbanView({
                             flexDirection: "column",
                             alignItems: "flex-start",
                             gap: "2px",
+                            minWidth: 0,
                           }}
                           onClick={() => toggleGroupCollapse(col.id, section.id)}
                         >
-                          <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{section.name}</span>
-                          <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>
+                          <span style={{ fontWeight: 700, fontSize: isPhoneLandscape ? "0.72rem" : "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{section.name}</span>
+                          <span style={{ fontSize: isPhoneLandscape ? "0.62rem" : "0.68rem", opacity: 0.75 }}>
                             {section.tasks.length} · {isCollapsed ? "Collapsed" : "Expanded"}
                           </span>
                         </button>
 
                         {!section.readOnly && (
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
                             <input
                               type="color"
                               value={section.color || "#4F46E5"}
-                              style={{ width: "24px", height: "24px", border: "none", background: "transparent", padding: 0 }}
+                              style={{ width: isPhoneLandscape ? "20px" : "24px", height: isPhoneLandscape ? "20px" : "24px", border: "none", background: "transparent", padding: 0 }}
                               onChange={(e) => changeGroupColor(section.id, e.target.value)}
                             />
                             <button

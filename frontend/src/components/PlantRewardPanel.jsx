@@ -12,6 +12,7 @@ import {
   REWARD_FLOW,
   STARTER_ITEMS,
 } from "../rewards/plantRewardCatalog";
+import useViewport from "../hooks/useViewport";
 
 const STORAGE_PREFIX = "organote_reward_state_v1";
 const JOURNAL_PREFIX = "organote_plant_journal_v1";
@@ -104,6 +105,7 @@ function RewardCarousel({ options, onSelect, selectedId, renderLabel, renderImag
 }
 
 export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, tasks = [] }) {
+  const { isPhone } = useViewport();
   const userId = localStorage.getItem("organote_user_id");
   const storageKey = useMemo(() => getStorageKey(userId), [userId]);
   const journalKey = useMemo(() => getJournalKey(userId), [userId]);
@@ -351,13 +353,13 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
           {setupHint ? <p style={styles.subtitle}>{setupHint}</p> : null}
         </div>
         {(rewardState.selectedPlantId || rewardState.selectedPotId) && (
-          <div style={styles.headerActions}>
+            <div style={{ ...styles.headerActions, width: isPhone ? "100%" : "auto", justifyContent: isPhone ? "space-between" : "flex-end", flexWrap: "wrap" }}>
             <Popconfirm
               open={infoOpen}
               trigger={["hover", "click"]}
               title="How rewards work"
               description={
-                <div style={styles.infoBody}>
+                  <div style={{ ...styles.infoBody, maxWidth: isPhone ? "180px" : styles.infoBody.maxWidth }}>
                   <p style={styles.infoText}>Complete tasks to move your plant forward one stage at a time.</p>
                   <p style={styles.infoText}>Finish setup once, then watch it grow until fully complete.</p>
                 </div>
@@ -480,7 +482,7 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
 
       {(rewardState.step === REWARD_FLOW.GROWING || rewardState.step === REWARD_FLOW.COMPLETE) && (
         <div style={styles.progressBlock}>
-          <div style={styles.progressHeader}>
+          <div style={{ ...styles.progressHeader, flexWrap: isPhone ? "wrap" : "nowrap", gap: isPhone ? "4px" : 0 }}>
             <span>
               Growth: {rewardState.growthTasksEarned}/{growthGoal}
             </span>
@@ -511,6 +513,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: "10px",
+    flexWrap: "wrap",
   },
   title: {
     margin: 0,
@@ -543,7 +546,7 @@ const styles = {
   },
   statRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
     gap: "8px",
   },
   statCard: {
@@ -640,7 +643,7 @@ const styles = {
   carouselSlide: {
     display: "flex",
     justifyContent: "center",
-    padding: "0 22px 18px",
+    padding: "0 10px 18px",
   },
   choiceCard: {
     background: "rgba(255,255,255,0.68)",

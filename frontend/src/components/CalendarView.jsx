@@ -3,6 +3,7 @@ import { Badge, Calendar } from "antd";
 import dayjs from "dayjs";
 import { apiFetch } from "../api";
 import "./CalendarView.css";
+import useViewport from "../hooks/useViewport";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -72,6 +73,7 @@ export default function CalendarView({
   searchQuery = "",
   taskFilters,
 }) {
+  const { isPhone, isTablet, isCompact, isLandscape } = useViewport();
   const [tasks, setTasks] = useState([]);
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -503,31 +505,61 @@ export default function CalendarView({
     return weeks;
   }, [anchorDate]);
 
+  const isCompactLandscape = isLandscape && (isPhone || isTablet);
+  const monthColumnTemplate = isCompactLandscape
+    ? "repeat(7, minmax(0, 1fr))"
+    : isCompact
+      ? `repeat(7, minmax(${isPhone ? 84 : 96}px, 1fr))`
+      : "repeat(7, 1fr)";
+  const weekColumnMinWidth = isCompactLandscape ? 0 : isPhone ? 112 : isTablet ? 126 : 140;
+  const weekColumnTemplate = isCompactLandscape
+    ? `repeat(${rangeDays.length}, minmax(0, 1fr))`
+    : `repeat(${rangeDays.length}, minmax(${weekColumnMinWidth}px, 1fr))`;
+  const yearColumnTemplate = isPhone
+    ? "minmax(0, 1fr)"
+    : isTablet
+      ? "repeat(2, minmax(240px, 1fr))"
+      : "repeat(4, minmax(220px, 1fr))";
+  const surfaceOverflow = viewMode === "day" ? "hidden" : "auto";
+  const headerGap = isCompactLandscape ? "6px" : "8px";
+  const headerPaddingBottom = isCompactLandscape ? "6px" : "8px";
+  const titleFontSize = isCompactLandscape ? "0.9rem" : "1rem";
+  const titleButtonGap = isCompactLandscape ? "4px" : "6px";
+  const navPadding = isCompactLandscape ? "4px 6px" : navButtonStyle.padding;
+  const monthHeaderRowHeight = isCompactLandscape ? 26 : 30;
+  const monthCellPadding = isCompactLandscape ? "3px 4px" : "4px 6px";
+  const monthDayFontSize = isCompactLandscape ? "11px" : "12px";
+  const monthBadgeFontSize = isCompactLandscape ? "0.6rem" : "0.68rem";
+  const weekSectionPadding = isCompactLandscape ? "6px" : "8px";
+  const weekHeaderFontSize = isCompactLandscape ? "0.68rem" : "0.75rem";
+  const weekDateFontSize = isCompactLandscape ? "0.88rem" : "1rem";
+  const weekCardMinHeight = isCompactLandscape ? "96px" : "120px";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px", height: "100%", padding: "0" }}>
       {/* Single Header Row: Nav | Title | View Buttons */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", paddingBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.1)", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: headerGap, paddingBottom: headerPaddingBottom, borderBottom: "1px solid rgba(255,255,255,0.1)", flexWrap: "wrap" }}>
         {/* Navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-          <button style={navButtonStyle} onClick={() => stepDate(-1)}>‹</button>
-          <button style={{ ...navButtonStyle, fontWeight: 600 }} onClick={resetToToday}>today</button>
-          <button style={navButtonStyle} onClick={() => stepDate(1)}>›</button>
+          <button style={{ ...navButtonStyle, padding: navPadding, fontSize: isCompactLandscape ? "0.74rem" : navButtonStyle.fontSize }} onClick={() => stepDate(-1)}>‹</button>
+          <button style={{ ...navButtonStyle, fontWeight: 600, padding: navPadding, fontSize: isCompactLandscape ? "0.74rem" : navButtonStyle.fontSize }} onClick={resetToToday}>today</button>
+          <button style={{ ...navButtonStyle, padding: navPadding, fontSize: isCompactLandscape ? "0.74rem" : navButtonStyle.fontSize }} onClick={() => stepDate(1)}>›</button>
         </div>
 
         {/* Title — clickable in month/year view */}
         <div ref={titleRef} style={{ flex: 1, textAlign: "center", minWidth: 0, position: "relative" }}>
           {(viewMode === "month") ? (
             /* Month view: month name + year, each independently clickable */
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 700, fontSize: "1rem" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: titleButtonGap, fontWeight: 700, fontSize: titleFontSize }}>
               <button
                 onClick={() => setTitleDropdown(titleDropdown === "month" ? null : "month")}
-                style={{ ...titlePartBtnStyle, color: titleDropdown === "month" ? "var(--btn-color, #A7C4A0)" : "var(--text-color, white)" }}
+                style={{ ...titlePartBtnStyle, fontSize: titleFontSize, color: titleDropdown === "month" ? "var(--btn-color, #A7C4A0)" : "var(--text-color, white)" }}
               >
                 {anchorDate.format("MMMM")} ▾
               </button>
               <button
                 onClick={() => setTitleDropdown(titleDropdown === "year" ? null : "year")}
-                style={{ ...titlePartBtnStyle, color: titleDropdown === "year" ? "var(--btn-color, #A7C4A0)" : "var(--text-color, white)" }}
+                style={{ ...titlePartBtnStyle, fontSize: titleFontSize, color: titleDropdown === "year" ? "var(--btn-color, #A7C4A0)" : "var(--text-color, white)" }}
               >
                 {anchorDate.format("YYYY")} ▾
               </button>
@@ -536,12 +568,12 @@ export default function CalendarView({
             /* Year view: just year, clickable */
             <button
               onClick={() => setTitleDropdown(titleDropdown === "year" ? null : "year")}
-              style={{ ...titlePartBtnStyle, fontWeight: 700, fontSize: "1rem", color: titleDropdown === "year" ? "var(--btn-color, #A7C4A0)" : "var(--text-color, white)" }}
+              style={{ ...titlePartBtnStyle, fontWeight: 700, fontSize: titleFontSize, color: titleDropdown === "year" ? "var(--btn-color, #A7C4A0)" : "var(--text-color, white)" }}
             >
               {anchorDate.format("YYYY")} ▾
             </button>
           ) : (
-            <span style={{ color: "var(--text-color, #2A2A2A)", fontWeight: 700, fontSize: "1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ color: "var(--text-color, #2A2A2A)", fontWeight: 700, fontSize: titleFontSize, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {titleForRange(viewMode, anchorDate)}
             </span>
           )}
@@ -599,6 +631,8 @@ export default function CalendarView({
               onClick={() => setViewMode(option.id)}
               style={{
                 ...navButtonStyle,
+                padding: navPadding,
+                fontSize: isCompactLandscape ? "0.74rem" : navButtonStyle.fontSize,
                 background: viewMode === option.id ? "rgba(255,255,255,0.18)" : navButtonStyle.background,
                 color: viewMode === option.id ? "var(--btn-color, #A7C4A0)" : "var(--text-color, rgba(255,255,255,0.6))",
                 fontWeight: viewMode === option.id ? "700" : "500",
@@ -614,7 +648,7 @@ export default function CalendarView({
         style={{
           flex: 1,
           minHeight: 0,
-          overflow: "hidden",
+          overflow: surfaceOverflow,
           borderRadius: "8px",
           border: "1px solid rgba(255,255,255,0.14)",
           display: "flex",
@@ -631,15 +665,17 @@ export default function CalendarView({
             flex: 1,
             minHeight: 0,
             display: "grid",
-            gridTemplateColumns: "repeat(7, 1fr)",
-            gridTemplateRows: `30px repeat(${monthGrid.length}, 1fr)`,
+            gridTemplateColumns: monthColumnTemplate,
+            gridTemplateRows: `${monthHeaderRowHeight}px repeat(${monthGrid.length}, 1fr)`,
             overflow: "hidden",
+            width: isCompactLandscape ? "100%" : isCompact ? "max-content" : "100%",
+            minWidth: isCompactLandscape ? 0 : isCompact ? "100%" : 0,
           }}>
             {/* Day-of-week headers */}
             {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => (
               <div key={d} style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "11px", fontWeight: 600, textTransform: "uppercase",
+                fontSize: isCompactLandscape ? "10px" : "11px", fontWeight: 600, textTransform: "uppercase",
                 letterSpacing: "0.5px", color: "var(--text-color, rgba(255,255,255,0.5))",
                 background: "rgba(255,255,255,0.04)",
                 borderBottom: "2px solid rgba(255,255,255,0.2)",
@@ -662,7 +698,7 @@ export default function CalendarView({
                   style={{
                     visibility: inMonth ? "visible" : "hidden",
                     display: "flex", flexDirection: "column",
-                    padding: "4px 6px",
+                    padding: monthCellPadding,
                     overflow: "hidden",
                     cursor: inMonth ? "pointer" : "default",
                     background: monthCellBackground,
@@ -675,7 +711,7 @@ export default function CalendarView({
                   }}
                 >
                   <div style={{
-                    fontSize: "12px",
+                    fontSize: monthDayFontSize,
                     fontWeight: isToday ? 700 : 500,
                     lineHeight: "1.4",
                     flexShrink: 0,
@@ -683,7 +719,7 @@ export default function CalendarView({
                   }}>
                     {day.format("D")}
                   </div>
-                  <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+                  <div style={{ flex: 1, minHeight: 0, overflow: "hidden", fontSize: monthBadgeFontSize }}>
                     {renderTaskBadges(dayTasks)}
                   </div>
                 </div>
@@ -692,7 +728,7 @@ export default function CalendarView({
           </div>
         ) : viewMode === "year" ? (
           /* Year view: 4x3 grid of mini-calendars */
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "16px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: isPhone ? "12px" : "16px", display: "grid", gridTemplateColumns: yearColumnTemplate, gap: isPhone ? "12px" : "16px" }}>
             {yearMonths.map(({ month, weeks }) => {
               const monthStr = month.format("MMMM");
               const yearStr = month.format("YYYY");
@@ -852,7 +888,7 @@ export default function CalendarView({
           /* Week/5-day View */
           <div style={{ display: "flex", flexDirection: "column", gap: "2px", overflow: "auto", flex: 1 }}>
             {/* Day Headers */}
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${rangeDays.length}, minmax(140px, 1fr))`, gap: "2px", padding: "8px", paddingBottom: "4px", position: "sticky", top: 0, background: "rgba(255,255,255,0.08)", zIndex: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: weekColumnTemplate, gap: "2px", padding: weekSectionPadding, paddingBottom: isCompactLandscape ? "2px" : "4px", position: "sticky", top: 0, background: "rgba(255,255,255,0.08)", zIndex: 10, width: isCompactLandscape ? "100%" : "max-content", minWidth: "100%" }}>
               {rangeDays.map((day) => {
                 const isToday = day.isSame(dayjs(), "day");
                 return (
@@ -868,10 +904,10 @@ export default function CalendarView({
                     boxShadow: isToday ? "inset 0 0 0 1px rgba(165, 210, 233, 0.55)" : "none",
                   }}
                 >
-                  <div style={{ fontSize: "0.75rem", color: isToday ? "var(--text-color, #2A2A2A)" : "var(--text-color, rgba(255,255,255,0.6))", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  <div style={{ fontSize: weekHeaderFontSize, color: isToday ? "var(--text-color, #2A2A2A)" : "var(--text-color, rgba(255,255,255,0.6))", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     {day.format("ddd")}
                   </div>
-                  <div style={{ fontSize: "1rem", fontWeight: 700, color: isToday ? "var(--text-color, #2A2A2A)" : "var(--text-color, white)", marginTop: "2px" }}>
+                  <div style={{ fontSize: weekDateFontSize, fontWeight: 700, color: isToday ? "var(--text-color, #2A2A2A)" : "var(--text-color, white)", marginTop: "2px" }}>
                     {day.format("D")}
                   </div>
                 </div>
@@ -879,7 +915,7 @@ export default function CalendarView({
             </div>
 
             {/* Day Content */}
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(${rangeDays.length}, minmax(140px, 1fr))`, gap: "2px", padding: "8px", flex: 1 }}>
+            <div style={{ display: "grid", gridTemplateColumns: weekColumnTemplate, gap: "2px", padding: weekSectionPadding, flex: 1, width: isCompactLandscape ? "100%" : "max-content", minWidth: "100%" }}>
               {rangeDays.map((day) => {
                 const dayTasks = tasksForDay(day);
                 const isToday = day.isSame(dayjs(), "day");
@@ -893,7 +929,7 @@ export default function CalendarView({
                       borderRadius: "6px",
                       padding: "6px",
                       background: baseDayBackground,
-                      minHeight: "120px",
+                      minHeight: weekCardMinHeight,
                       display: "flex",
                       flexDirection: "column",
                       gap: "4px",
@@ -950,11 +986,11 @@ export default function CalendarView({
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <input type="text" value={draftTask.title} onChange={(e) => setDraftTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
                 <input type="date" value={draftTask.date} onChange={(e) => setDraftTask((prev) => ({ ...prev, date: e.target.value }))} style={inputStyle} />
                 <input type="time" value={draftTask.time} onChange={(e) => setDraftTask((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
                 <select value={draftTask.priority} onChange={(e) => setDraftTask((prev) => ({ ...prev, priority: e.target.value }))} style={inputStyle}>
                   <option value="">No priority</option>
                   <option value="low">Low</option>
@@ -967,7 +1003,7 @@ export default function CalendarView({
                 </select>
               </div>
             </div>
-            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexDirection: isPhone ? "column" : "row" }}>
               <button style={saveButtonStyle} onClick={submitAddTask}>Save</button>
               <button style={cancelButtonStyle} onClick={() => setShowAddModal(false)}>Cancel</button>
             </div>
@@ -983,7 +1019,7 @@ export default function CalendarView({
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <input type="text" value={editDraft.title} onChange={(e) => setEditDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
                 <input
                   type="date"
                   value={editDraft.date}
@@ -1000,7 +1036,7 @@ export default function CalendarView({
                 />
                 <input type="time" value={editDraft.time} onChange={(e) => setEditDraft((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
                 <select value={editDraft.priority} onChange={(e) => setEditDraft((prev) => ({ ...prev, priority: e.target.value }))} style={inputStyle}>
                   <option value="">No priority</option>
                   <option value="low">Low</option>
@@ -1037,7 +1073,7 @@ export default function CalendarView({
                 </select>
               )}
             </div>
-            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexDirection: isPhone ? "column" : "row" }}>
               <button style={saveButtonStyle} onClick={submitEditTask}>Save</button>
               <button style={{ ...cancelButtonStyle, color: "#ff8a8a", borderColor: "rgba(255,100,100,0.4)" }} onClick={deleteTask}>Delete</button>
               <button style={cancelButtonStyle} onClick={() => setEditingTask(null)}>Cancel</button>
@@ -1131,13 +1167,13 @@ const dropdownStyle = {
   top: "calc(100% + 6px)",
   left: "50%",
   transform: "translateX(-50%)",
-  background: "rgba(40,42,54,0.97)",
-  border: "1px solid rgba(255,255,255,0.2)",
+  background: "rgba(178, 186, 181, 0.92)",
+  border: "1px solid rgba(245,248,243,0.24)",
   borderRadius: "8px",
   padding: "10px",
   zIndex: 1000,
   backdropFilter: "blur(12px)",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.24)",
   minWidth: "200px",
 };
 

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../api";
 import PlantRewardPanel from "./PlantRewardPanel";
+import useViewport from "../hooks/useViewport";
 
 export default function ProgressPanel({ refreshTrigger = 0 }) {
+  const { isPhone } = useViewport();
   const [completedTasks, setCompletedTasks] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
   const [tasks, setTasks] = useState([]);
@@ -47,7 +49,7 @@ export default function ProgressPanel({ refreshTrigger = 0 }) {
       </div>
 
       <div style={styles.progressSection}>
-        <div style={styles.progressLabel}>
+        <div style={{ ...styles.progressLabel, flexWrap: isPhone ? "wrap" : "nowrap", gap: isPhone ? "4px" : 0 }}>
           <span>Overall progress: {completedTasks}/{totalTasks}</span>
           <span style={styles.progressPercent}>
             {progressPercent}%
@@ -88,7 +90,7 @@ const styles = {
   },
   statsRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
     gap: "10px",
   },
   statCard: {

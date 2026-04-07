@@ -9,6 +9,13 @@ import UnstructuredInput from "./UnstructuredInputPanel";
 import { theme } from "../theme";
 import { apiFetch } from "../api";
 import { getPlantById, getPlantStages, getPotById, REWARD_FLOW } from "../rewards/plantRewardCatalog";
+import useViewport from "../hooks/useViewport";
+
+const SURFACE_BG = "rgba(234, 232, 232, 0.53)";
+const SURFACE_BG_HOVER = "rgba(194, 194, 194, 0.74)";
+const SURFACE_BORDER = "rgba(51, 67, 57, 0.18)";
+const SURFACE_TEXT = "#233127";
+const SURFACE_MUTED = "#4a5c52";
 
 const styles = {
   container: {
@@ -34,12 +41,12 @@ const styles = {
   },
 
   panel: {
-    background: "rgba(255,255,255,.4)",
+    background: SURFACE_BG,
     borderRadius: "12px",
     padding: "20px",
-    border: `2px solid rgba(255,255,255,0.3)`,
+    border: `1px solid ${SURFACE_BORDER}`,
     overflow: "hidden",
-    boxShadow: "0 4px 6px rgba(138, 138, 138, 0.5)",
+    boxShadow: "0 10px 24px rgba(46, 62, 51, 0.12)",
     backdropFilter: "blur(5px)"
   },
 
@@ -60,7 +67,7 @@ const styles = {
   title: {
     fontSize: "1.5rem",
     fontWeight: "bold",
-    color: "var(--text-color, white)",
+    color: SURFACE_TEXT,
     fontStyle: "normal",
     margin: 0,
     fontFamily: "inherit",
@@ -87,9 +94,20 @@ const styles = {
     border: "none",
     fontSize: "1.5rem",
     cursor: "pointer",
-    color: "var(--text-color, rgba(255,255,255,0.7))",
+    color: SURFACE_MUTED,
     padding: "5px",
     transition: "color 0.2s"
+  },
+  srOnly: {
+    position: "absolute",
+    width: "1px",
+    height: "1px",
+    padding: 0,
+    margin: "-1px",
+    overflow: "hidden",
+    clip: "rect(0, 0, 0, 0)",
+    whiteSpace: "nowrap",
+    border: 0,
   },
 
   bottomInput: {
@@ -168,6 +186,7 @@ const styles = {
 };
 
 export default function Dashboard({themeColor}) {
+  const { isPhone, isTablet, isCompact, isTabletLandscape, isLandscape } = useViewport();
   const [showSettings, setShowSettings] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   // Initialize bgColor from localStorage first; if not present, use theme default
@@ -789,42 +808,176 @@ export default function Dashboard({themeColor}) {
     }
   }, [showMiniCalendar]);
 
+  const useFullWidthCalendarLayout = isTabletLandscape && viewMode === 'calendar';
+  const useFullWidthKanbanLayout = isLandscape && isCompact && viewMode === 'kanban';
+  const useStackedCompactLayout = (isCompact && !isTabletLandscape) || useFullWidthCalendarLayout || useFullWidthKanbanLayout;
+  const compactGap = isPhone ? "12px" : isTablet ? "16px" : styles.container.gap;
+  const compactPadding = isPhone ? "12px" : isTablet ? "16px" : styles.container.padding;
+  const landscapeTabletColumns = "minmax(260px, 300px) minmax(0, 1fr)";
+
   const containerStyle = bgImage
     ? {
         ...styles.container,
+        gridTemplateColumns: useStackedCompactLayout ? "1fr" : isTabletLandscape ? landscapeTabletColumns : "250px minmax(0, 1fr)",
+        gap: compactGap,
+        padding: compactPadding,
+        minHeight: "100vh",
+        height: "auto",
         backgroundImage: `url(${bgImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
       }
-    : styles.container;
+    : {
+        ...styles.container,
+        gridTemplateColumns: useStackedCompactLayout ? "1fr" : isTabletLandscape ? landscapeTabletColumns : "250px minmax(0, 1fr)",
+        gap: compactGap,
+        padding: compactPadding,
+        minHeight: "100vh",
+        height: "auto",
+      };
+
+  const sidebarStyle = {
+    ...styles.sidebar,
+    gap: isPhone ? "12px" : styles.sidebar.gap,
+    gridRow: useStackedCompactLayout ? "2" : styles.sidebar.gridRow,
+    gridColumn: useStackedCompactLayout ? "1" : styles.sidebar.gridColumn,
+    alignSelf: useStackedCompactLayout ? "start" : "stretch",
+  };
+
+  const mainContentStyle = {
+    ...styles.panel,
+    ...styles.mainContent,
+    gridRow: useStackedCompactLayout ? "1" : styles.mainContent.gridRow,
+    gridColumn: useStackedCompactLayout ? "1" : styles.mainContent.gridColumn,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    minWidth: 0,
+    minHeight: useStackedCompactLayout
+      ? useFullWidthCalendarLayout || useFullWidthKanbanLayout
+        ? '74vh'
+        : isPhone
+          ? '72vh'
+          : isTablet
+            ? '68vh'
+            : 0
+      : 0,
+  };
+
+  const sidebarPanelGridStyle = useStackedCompactLayout
+    ? {
+        display: 'grid',
+        gridTemplateColumns: isPhone ? '1fr' : showMiniCalendar ? 'minmax(0, 0.9fr) minmax(0, 1.1fr)' : '1fr',
+        gap: isPhone ? '12px' : '16px',
+        alignItems: 'start',
+      }
+    : null;
+
+  const tasksHeaderStyle = {
+    ...styles.tasksHeader,
+    flexWrap: 'wrap',
+    gap: isPhone ? '10px' : '12px',
+    alignItems: isPhone ? 'flex-start' : 'center',
+  };
+
+  const controlsBarStyle = {
+    display: 'flex',
+    gap: isPhone ? '12px' : '16px',
+    padding: isPhone ? '12px 0' : '12px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    alignItems: isPhone ? 'stretch' : 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    flexDirection: isPhone ? 'column' : 'row',
+  };
+
+  const viewToggleGroupStyle = {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  };
+
+  const searchControlsStyle = {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    width: isPhone ? '100%' : 'auto',
+    flexWrap: 'wrap',
+    justifyContent: isPhone ? 'flex-start' : 'flex-end',
+  };
+
+  const searchInputStyle = {
+    background: SURFACE_BG,
+    border: `1px solid ${SURFACE_BORDER}`,
+    borderRadius: '6px',
+    padding: '6px 12px',
+    color: SURFACE_TEXT,
+    fontSize: '0.9rem',
+    outline: 'none',
+    minWidth: isPhone ? 0 : '150px',
+    width: isPhone ? '100%' : 'clamp(150px, 24vw, 240px)',
+    transition: 'all 0.2s',
+  };
+
+  const settingsDialogStyle = {
+    borderRadius: '16px',
+    maxWidth: isPhone ? 'none' : '460px',
+    width: isPhone ? 'calc(100% - 24px)' : '90%',
+    maxHeight: '92vh',
+    overflow: 'hidden',
+    backdropFilter: 'blur(20px)',
+    background: 'rgba(255,255,255,0.12)',
+    border: '2px solid rgba(255,255,255,0.25)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+  };
+
+  const settingsHeaderStyle = {
+    padding: isPhone ? '16px 16px 14px' : '20px 24px 16px',
+    borderBottom: '1px solid rgba(255,255,255,0.12)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+  };
+
+  const settingsTabsStyle = {
+    display: 'flex',
+    padding: isPhone ? '0 10px' : '0 16px',
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+    flexWrap: 'wrap',
+  };
+
+  const settingsPanelPadding = isPhone ? '16px' : '20px 24px';
+  const settingsScrollableHeight = isPhone ? '60vh' : '480px';
 
   return (
     <div style={containerStyle} data-dashboard-container>
       {/* LEFT SIDEBAR */}
-      <div style={styles.sidebar}>
-        {/* Calendar */}
-        {showMiniCalendar && (
-          <div style={styles.panel}>
-            <CalendarPanel />
-          </div>
-        )}
+      <div style={sidebarStyle}>
+        <div style={sidebarPanelGridStyle || undefined}>
+          {/* Calendar */}
+          {showMiniCalendar && (
+            <div style={styles.panel}>
+              <CalendarPanel />
+            </div>
+          )}
 
-        {/* Progress */}
-        <div style={styles.panel}>
-          <ProgressPanel refreshTrigger={refreshTrigger} />
+          {/* Progress */}
+          <div style={styles.panel}>
+            <ProgressPanel refreshTrigger={refreshTrigger} />
+          </div>
         </div>
       </div>
 
       {/* RIGHT: Tasks */}
-      <div style={{ 
-        ...styles.panel, 
-        ...styles.mainContent,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
-        <div style={styles.tasksHeader}>
+      <div style={mainContentStyle}>
+        <div style={tasksHeaderStyle}>
           <h2 style={{ ...styles.title, color: fontColor }}>Tasks Organized</h2>
           <div style={styles.headerIcons}>
             <button
@@ -838,14 +991,14 @@ export default function Dashboard({themeColor}) {
         </div>
 
         {/* View Mode Toggle Buttons and Search */}
-        <div style={{ display: 'flex', gap: '16px', padding: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div style={controlsBarStyle}>
+          <div style={viewToggleGroupStyle}>
             <button
               onClick={() => setViewMode('list')}
               style={{
                 background: 'none',
                 border: 'none',
-                color: viewMode === 'list' ? 'var(--btn-color, #A7C4A0)' : 'var(--text-color, white)',
+                color: viewMode === 'list' ? '#355c31' : SURFACE_MUTED,
                 fontSize: '1rem',
                 cursor: 'pointer',
                 fontWeight: viewMode === 'list' ? 'bold' : 'normal',
@@ -861,7 +1014,7 @@ export default function Dashboard({themeColor}) {
               style={{
                 background: 'none',
                 border: 'none',
-                color: viewMode === 'kanban' ? 'var(--btn-color, #A7C4A0)' : 'var(--text-color, white)',
+                color: viewMode === 'kanban' ? '#355c31' : SURFACE_MUTED,
                 fontSize: '1rem',
                 cursor: 'pointer',
                 fontWeight: viewMode === 'kanban' ? 'bold' : 'normal',
@@ -877,7 +1030,7 @@ export default function Dashboard({themeColor}) {
               style={{
                 background: 'none',
                 border: 'none',
-                color: viewMode === 'calendar' ? 'var(--btn-color, #A7C4A0)' : 'var(--text-color, white)',
+                color: viewMode === 'calendar' ? '#355c31' : SURFACE_MUTED,
                 fontSize: '1rem',
                 cursor: 'pointer',
                 fontWeight: viewMode === 'calendar' ? 'bold' : 'normal',
@@ -889,38 +1042,30 @@ export default function Dashboard({themeColor}) {
               Calendar
             </button>
           </div>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={searchControlsStyle}>
+            <label htmlFor="dashboard-task-search" style={styles.srOnly}>Search tasks</label>
             <input
+              id="dashboard-task-search"
               type="text"
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                color: 'var(--text-color, #2A2A2A)',
-                fontSize: '0.9rem',
-                outline: 'none',
-                minWidth: '150px',
-                transition: 'all 0.2s',
-              }}
+              style={searchInputStyle}
               onFocus={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.background = SURFACE_BG_HOVER;
+                e.currentTarget.style.borderColor = 'rgba(35, 49, 39, 0.32)';
               }}
               onBlur={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.background = SURFACE_BG;
+                e.currentTarget.style.borderColor = SURFACE_BORDER;
               }}
             />
             <button
               onClick={() => setShowFilters((prev) => !prev)}
               style={{
-                border: '1px solid rgba(255, 255, 255, 0.22)',
-                background: filterCount > 0 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.1)',
-                color: 'var(--text-color, #2A2A2A)',
+                border: `1px solid ${SURFACE_BORDER}`,
+                background: filterCount > 0 ? 'rgba(232, 239, 227, 0.98)' : SURFACE_BG,
+                color: SURFACE_TEXT,
                 borderRadius: '6px',
                 fontSize: '0.85rem',
                 padding: '6px 10px',
@@ -940,19 +1085,19 @@ export default function Dashboard({themeColor}) {
                   right: 0,
                   width: '320px',
                   maxWidth: '90vw',
-                  background: 'rgba(70, 70, 70, 0.49)',
-                  border: '1px solid rgba(255,255,255,0.22)',
+                  background: 'rgba(178, 186, 181, 0.92)',
+                  border: '1px solid rgba(236,243,232,0.3)',
                   borderRadius: '10px',
                   padding: '12px',
                   backdropFilter: 'blur(18px)',
-                  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.41)',
+                  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.28)',
                   zIndex: 40,
                 }}
               >
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Status</label>
-                    <select value={taskFilters.status} onChange={(e) => updateFilter('status', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                    <select value={taskFilters.status} onChange={(e) => updateFilter('status', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="all">All</option>
                       <option value="to-do">To Do</option>
                       <option value="in-progress">In Progress</option>
@@ -962,7 +1107,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Priority</label>
-                    <select value={taskFilters.priority} onChange={(e) => updateFilter('priority', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                    <select value={taskFilters.priority} onChange={(e) => updateFilter('priority', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="all">All</option>
                       <option value="high">High</option>
                       <option value="medium">Medium</option>
@@ -971,7 +1116,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Category</label>
-                    <select value={taskFilters.category} onChange={(e) => updateFilter('category', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                    <select value={taskFilters.category} onChange={(e) => updateFilter('category', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="all">All</option>
                       <option value="ungrouped">Ungrouped</option>
                       {groupsForFilters.map((group) => (
@@ -981,7 +1126,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Due Date</label>
-                    <select value={taskFilters.dueDate} onChange={(e) => updateFilter('dueDate', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                    <select value={taskFilters.dueDate} onChange={(e) => updateFilter('dueDate', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="any">Anytime</option>
                       <option value="today">Today</option>
                       <option value="this-week">This Week</option>
@@ -992,7 +1137,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Sort By</label>
-                    <select value={taskSort.sortBy} onChange={(e) => updateSort('sortBy', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                    <select value={taskSort.sortBy} onChange={(e) => updateSort('sortBy', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       <option value="due-date">Due Date</option>
                       <option value="priority">Priority</option>
                       <option value="alpha">Alphabetical</option>
@@ -1002,7 +1147,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Order</label>
-                    <select value={taskSort.direction} onChange={(e) => updateSort('direction', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(70, 70, 70, 0.49)', border: '1px solid rgba(255,255,255,0.22)', color: 'var(--text-color, white)' }}>
+                    <select value={taskSort.direction} onChange={(e) => updateSort('direction', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
                       {taskSort.sortBy === 'due-date' && (
                         <>
                           <option value="asc">Ascending</option>
@@ -1105,22 +1250,9 @@ export default function Dashboard({themeColor}) {
       {/* Settings Modal */}
       {showSettings && (
         <div style={styles.modalOverlay} onClick={() => setShowSettings(false)}>
-          <div
-            style={{
-              borderRadius: '16px',
-              maxWidth: '460px',
-              width: '90%',
-              overflow: 'hidden',
-              backdropFilter: 'blur(20px)',
-              background: 'rgba(255,255,255,0.12)',
-              border: '2px solid rgba(255,255,255,0.25)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
-              position: 'relative',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div style={settingsDialogStyle} onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={settingsHeaderStyle}>
               <div>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: '4px', fontWeight: 400 }}>Preferences</div>
                 <h3 style={{ margin: 0, fontSize: '1.5rem', fontStyle: 'normal', fontFamily: 'inherit', color: 'var(--text-color, white)', lineHeight: 1 }}>Settings</h3>
@@ -1134,7 +1266,7 @@ export default function Dashboard({themeColor}) {
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', padding: '0 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={settingsTabsStyle}>
               {['display', 'alerts', 'plant-journal'].map(tab => (
                 <button
                   key={tab}
@@ -1161,7 +1293,7 @@ export default function Dashboard({themeColor}) {
 
             {/* Display tab*/}
             {settingsTab === 'display' && (
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ padding: settingsPanelPadding, display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto' }}>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Appearance</div>
 
                 {/* Mini Calendar Toggle */}
@@ -1292,7 +1424,7 @@ export default function Dashboard({themeColor}) {
 
             {/* Alerts*/}
             {settingsTab === 'alerts' && (
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto' }}>
+              <div style={{ padding: settingsPanelPadding, display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: settingsScrollableHeight, overflowY: 'auto' }}>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Notifications</div>
 
                 {/* Enable Notifications toggle */}
@@ -1425,7 +1557,7 @@ export default function Dashboard({themeColor}) {
             )}
 
             {settingsTab === 'plant-journal' && (
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '480px', overflowY: 'auto' }}>
+              <div style={{ padding: settingsPanelPadding, display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: settingsScrollableHeight, overflowY: 'auto' }}>
                 <div style={{ fontSize: '9px', letterSpacing: '4px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '2px' }}>Plant Journal</div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
@@ -1452,7 +1584,7 @@ export default function Dashboard({themeColor}) {
                     </div>
                   ) : (
                     plantJournalEntries.map((entry) => (
-                      <div key={entry.id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                      <div key={entry.id} style={{ display: 'flex', flexDirection: isPhone ? 'column' : 'row', gap: '12px', alignItems: isPhone ? 'stretch' : 'flex-start', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}>
                         <div style={{ width: '64px', height: '64px', flexShrink: 0, borderRadius: '10px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                           {getJournalEntryImage(entry) ? (
                             <img src={getJournalEntryImage(entry)} alt={`${entry.plantName} in ${entry.potName}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />

@@ -1217,6 +1217,8 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: "12px",
+    gap: "10px",
+    flexWrap: "wrap",
   },
   groupToolbarLabel: {
     color: "var(--text-color, #2A2A2A)",
@@ -1227,6 +1229,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
+    flexWrap: "wrap",
   },
   groupAddButton: {
     display: "flex",
@@ -1287,6 +1290,8 @@ const styles = {
     borderRadius: "8px",
     padding: "8px",
     marginBottom: "8px",
+    gap: "8px",
+    flexWrap: "wrap",
   },
   groupToggleButton: {
     background: "none",
@@ -1311,6 +1316,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "6px",
+    flexWrap: "wrap",
   },
   groupColorPicker: {
     width: "28px",
@@ -1350,8 +1356,9 @@ const styles = {
   itemContent: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: "12px",
+    flexWrap: "wrap",
   },
   taskInfo: {
     flex: 1,
