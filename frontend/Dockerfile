@@ -17,7 +17,7 @@ RUN npm install -g serve
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/package*.json ./
 RUN npm ci --only=production
-COPY server.js ./server.js
+COPY server.cjs ./server.cjs
 
 EXPOSE 8080
 
