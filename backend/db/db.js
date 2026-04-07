@@ -1,9 +1,14 @@
 const { Pool } = require("pg");
 
+const connectionString =
+  process.env.DATABASE_URL ||
+  "postgresql://organote:organote@localhost:15432/organote";
+
+const isLocalConnection = /localhost|127\.0\.0\.1/.test(connectionString);
+
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgresql://organote:organote@localhost:15432/organote",
+  connectionString,
+  ssl: isLocalConnection ? false : { rejectUnauthorized: false },
 });
 
 pool.query("SELECT NOW()", (err, res) => {
