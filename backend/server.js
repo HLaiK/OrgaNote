@@ -41,6 +41,25 @@ async function ensureSchema() {
       )
     `);
 
+    await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS raw_input TEXT");
+    await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT");
+    await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS category TEXT");
+    await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ");
+    await pool.query(
+      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_offset_minutes INTEGER",
+    );
+    await pool.query(
+      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'",
+    );
+    await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id TEXT");
+    await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS group_id INTEGER");
+    await pool.query(
+      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()",
+    );
+    await pool.query(
+      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()",
+    );
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS task_groups (
         id SERIAL PRIMARY KEY,
@@ -52,9 +71,6 @@ async function ensureSchema() {
       )
     `);
 
-    await pool.query(
-      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS group_id INTEGER",
-    );
     await pool
       .query(
         `ALTER TABLE tasks
@@ -64,10 +80,6 @@ async function ensureSchema() {
        ON DELETE SET NULL`,
       )
       .catch(() => {});
-
-    await pool.query(
-      "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reminder_offset_minutes INTEGER",
-    );
   } catch (err) {
     console.error("Schema ensure error:", err);
     throw err;
