@@ -8,6 +8,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.get("/app-config.js", (req, res) => {
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate",
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   res.type("application/javascript");
   res.send(
     `window.__APP_CONFIG__ = ${JSON.stringify({
@@ -36,4 +42,7 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Frontend running on http://0.0.0.0:${PORT}`);
+  console.log(
+    `Frontend API base URL: ${process.env.VITE_API_URL || "/api (default)"}`,
+  );
 });

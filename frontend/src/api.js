@@ -33,5 +33,13 @@ export async function apiFetch(path, options = {}) {
     throw new Error(text);
   }
 
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Expected JSON from ${res.url}, received ${contentType || "unknown content type"}: ${text.slice(0, 160)}`,
+    );
+  }
+
   return res.json();
 }
