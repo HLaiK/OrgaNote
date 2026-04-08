@@ -675,8 +675,12 @@ export default function Dashboard({themeColor}) {
   const handleBgImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!['image/png', 'image/gif'].includes(file.type)) {
-      alert('Only PNG and GIF files are supported.');
+    const mimeType = (file.type || '').toLowerCase();
+    const fileName = (file.name || '').toLowerCase();
+    const isSupportedImage =
+      mimeType.startsWith('image/') || /\.(png|gif|jpe?g|webp)$/i.test(fileName);
+    if (!isSupportedImage) {
+      alert('Only image files are supported. Try PNG, GIF, JPG, or WEBP.');
       e.target.value = '';
       return;
     }
@@ -987,6 +991,52 @@ export default function Dashboard({themeColor}) {
 
   const settingsPanelPadding = isPhone ? '16px' : '20px 24px';
   const settingsScrollableHeight = isPhone ? '60vh' : '480px';
+  const filterPanelStyle = isPhone
+    ? {
+        position: 'fixed',
+        left: '12px',
+        right: '12px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: 'auto',
+        maxWidth: 'none',
+        maxHeight: '70vh',
+        overflowY: 'auto',
+        background: 'rgba(178, 186, 181, 0.95)',
+        border: '1px solid rgba(236,243,232,0.3)',
+        borderRadius: '14px',
+        padding: '14px',
+        backdropFilter: 'blur(18px)',
+        boxShadow: '0 14px 36px rgba(0, 0, 0, 0.28)',
+        zIndex: 80,
+      }
+    : {
+        position: 'absolute',
+        top: '40px',
+        right: 0,
+        width: '320px',
+        maxWidth: '90vw',
+        background: 'rgba(178, 186, 181, 0.92)',
+        border: '1px solid rgba(236,243,232,0.3)',
+        borderRadius: '10px',
+        padding: '12px',
+        backdropFilter: 'blur(18px)',
+        boxShadow: '0 10px 24px rgba(0, 0, 0, 0.28)',
+        zIndex: 40,
+      };
+  const filterGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr',
+    gap: isPhone ? '10px' : '8px',
+  };
+  const addTasksDialogStyle = {
+    ...styles.modal,
+    maxWidth: isPhone ? 'none' : '500px',
+    width: isPhone ? 'calc(100% - 24px)' : styles.modal.width,
+    padding: isPhone ? '18px 16px' : styles.modal.padding,
+    maxHeight: isPhone ? '78vh' : 'none',
+    overflowY: isPhone ? 'auto' : 'visible',
+  };
 
   return (
     <div style={containerStyle} data-dashboard-container>
@@ -1125,22 +1175,9 @@ export default function Dashboard({themeColor}) {
                 id={filtersPanelId}
                 role="group"
                 aria-label="Task filters and sorting"
-                style={{
-                  position: 'absolute',
-                  top: '40px',
-                  right: 0,
-                  width: '320px',
-                  maxWidth: '90vw',
-                  background: 'rgba(178, 186, 181, 0.92)',
-                  border: '1px solid rgba(236,243,232,0.3)',
-                  borderRadius: '10px',
-                  padding: '12px',
-                  backdropFilter: 'blur(18px)',
-                  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.28)',
-                  zIndex: 40,
-                }}
+                style={filterPanelStyle}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={filterGridStyle}>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-color, white)', display: 'block', marginBottom: '4px' }}>Status</label>
                     <select aria-label="Filter tasks by status" value={taskFilters.status} onChange={(e) => updateFilter('status', e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '6px', background: 'rgba(236, 242, 233, 0.22)', border: '1px solid rgba(255,255,255,0.28)', color: 'var(--text-color, white)' }}>
@@ -1228,7 +1265,7 @@ export default function Dashboard({themeColor}) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', gap: '8px', flexDirection: isPhone ? 'column' : 'row' }}>
                   <button type="button" onClick={resetFiltersAndSort} style={{ flex: 1, padding: '7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.12)', color: 'var(--text-color, white)', cursor: 'pointer' }}>
                     Reset
                   </button>
@@ -1275,7 +1312,7 @@ export default function Dashboard({themeColor}) {
       {/* Add Task Modal */}
       {showAddTask && (
         <div style={styles.modalOverlay} onClick={() => setShowAddTask(false)}>
-          <div role="dialog" aria-modal="true" aria-labelledby={addTasksTitleId} style={{ ...styles.modal, maxWidth: "500px" }} onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby={addTasksTitleId} style={addTasksDialogStyle} onClick={(e) => e.stopPropagation()}>
             <button
               style={styles.closeButton}
               onClick={() => setShowAddTask(false)}
@@ -1451,7 +1488,7 @@ export default function Dashboard({themeColor}) {
                     <div style={{ width: '30px', height: '30px', background: SETTINGS_PANEL_ALT, border: `1px solid ${SETTINGS_PANEL_BORDER}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', color: SETTINGS_TEXT, flexShrink: 0 }}><PictureOutlined /></div>
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 500, color: SETTINGS_TEXT }}>Background Image</div>
-                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>PNG or GIF only — max ~4 MB</div>
+                      <div style={{ fontSize: '10px', color: SETTINGS_MUTED, marginTop: '2px' }}>Image file — max ~4 MB</div>
                     </div>
                   </div>
 
@@ -1479,7 +1516,7 @@ export default function Dashboard({themeColor}) {
                     >
                       <span style={{ color: SETTINGS_TEXT, fontSize: '16px', lineHeight: 1 }}>↑</span>
                       <span style={{ fontSize: '12px', color: SETTINGS_MUTED }}>Drop or click to browse…</span>
-                      <input aria-label="Upload background image" type="file" accept="image/png,image/gif" onChange={handleBgImageUpload} style={{ display: 'none' }} />
+                      <input aria-label="Upload background image" type="file" accept="image/*,.png,.gif,.jpg,.jpeg,.webp" onChange={handleBgImageUpload} style={{ display: 'none' }} />
                     </label>
                   )}
                 </div>

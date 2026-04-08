@@ -526,8 +526,10 @@ export default function CalendarView({
 
   const isCompactLandscape = isLandscape && (isPhone || isTablet);
   const fitMonthToViewport = isPhone || isCompactLandscape;
-  const monthColumnTemplate = fitMonthToViewport
-    ? "repeat(7, minmax(0, 1fr))"
+  const monthColumnTemplate = isPhone
+    ? "repeat(7, minmax(38px, 1fr))"
+    : fitMonthToViewport
+      ? "repeat(7, minmax(0, 1fr))"
     : isCompact
       ? `repeat(7, minmax(${isPhone ? 84 : 96}px, 1fr))`
       : "repeat(7, 1fr)";
@@ -546,14 +548,37 @@ export default function CalendarView({
   const titleFontSize = isCompactLandscape ? "0.9rem" : "1rem";
   const titleButtonGap = isCompactLandscape ? "4px" : "6px";
   const navPadding = isCompactLandscape ? "4px 6px" : navButtonStyle.padding;
-  const monthHeaderRowHeight = isPhone ? 22 : isCompactLandscape ? 26 : 30;
+  const monthHeaderRowHeight = isPhone ? 20 : isCompactLandscape ? 26 : 30;
   const monthCellPadding = isPhone ? "2px 2px" : isCompactLandscape ? "3px 4px" : "4px 6px";
-  const monthDayFontSize = isPhone ? "10px" : isCompactLandscape ? "11px" : "12px";
+  const monthDayFontSize = isPhone ? "9px" : isCompactLandscape ? "11px" : "12px";
   const monthBadgeFontSize = isPhone ? "0.56rem" : isCompactLandscape ? "0.6rem" : "0.68rem";
   const weekSectionPadding = isCompactLandscape ? "6px" : "8px";
   const weekHeaderFontSize = isCompactLandscape ? "0.68rem" : "0.75rem";
   const weekDateFontSize = isCompactLandscape ? "0.88rem" : "1rem";
   const weekCardMinHeight = isCompactLandscape ? "96px" : "120px";
+  const monthRowTemplate = isPhone
+    ? `${monthHeaderRowHeight}px repeat(${monthGrid.length}, minmax(54px, auto))`
+    : `${monthHeaderRowHeight}px repeat(${monthGrid.length}, 1fr)`;
+  const calendarSurfaceOverflow = viewMode === "day"
+    ? "hidden"
+    : isPhone && viewMode === "month"
+      ? "hidden"
+      : surfaceOverflow;
+  const calendarModalOverlayStyle = {
+    ...modalOverlayStyle,
+    alignItems: isPhone ? "flex-start" : modalOverlayStyle.alignItems,
+    padding: isPhone ? "12px" : 0,
+    overflowY: isPhone ? "auto" : "visible",
+  };
+  const calendarModalStyle = {
+    ...modalStyle,
+    width: isPhone ? "calc(100% - 16px)" : modalStyle.width,
+    maxWidth: isPhone ? "none" : modalStyle.maxWidth,
+    padding: isPhone ? "14px" : modalStyle.padding,
+    maxHeight: isPhone ? "78vh" : "none",
+    overflowY: isPhone ? "auto" : "visible",
+    marginTop: isPhone ? "40px" : 0,
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px", height: "100%", padding: "0" }}>
@@ -668,7 +693,7 @@ export default function CalendarView({
         style={{
           flex: 1,
           minHeight: 0,
-          overflow: surfaceOverflow,
+          overflow: calendarSurfaceOverflow,
           borderRadius: "8px",
           border: "1px solid rgba(255,255,255,0.14)",
           display: "flex",
@@ -686,16 +711,17 @@ export default function CalendarView({
             minHeight: 0,
             display: "grid",
             gridTemplateColumns: monthColumnTemplate,
-            gridTemplateRows: `${monthHeaderRowHeight}px repeat(${monthGrid.length}, 1fr)`,
+            gridTemplateRows: monthRowTemplate,
             overflow: "hidden",
             width: fitMonthToViewport ? "100%" : isCompact ? "max-content" : "100%",
             minWidth: fitMonthToViewport ? 0 : isCompact ? "100%" : 0,
+            alignContent: isPhone ? "start" : "stretch",
           }}>
             {/* Day-of-week headers */}
             {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => (
               <div key={d} style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: isPhone ? "9px" : isCompactLandscape ? "10px" : "11px", fontWeight: 600, textTransform: "uppercase",
+                fontSize: isPhone ? "8px" : isCompactLandscape ? "10px" : "11px", fontWeight: 600, textTransform: "uppercase",
                 letterSpacing: "0.5px", color: "var(--text-color, rgba(255,255,255,0.5))",
                 background: "rgba(255,255,255,0.04)",
                 borderBottom: "2px solid rgba(255,255,255,0.2)",
@@ -1049,8 +1075,8 @@ export default function CalendarView({
       </div>
 
       {showAddModal && (
-        <div style={modalOverlayStyle} onClick={() => setShowAddModal(false)}>
-          <div style={modalStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={addDialogTitleId}>
+        <div style={calendarModalOverlayStyle} onClick={() => setShowAddModal(false)}>
+          <div style={calendarModalStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={addDialogTitleId}>
             <h3 id={addDialogTitleId} style={{ marginTop: 0, marginBottom: "14px", color: "var(--text-color, white)", fontStyle: "italic" }}>
               Add Task for {dayjs(draftTask.date).format("MMM D, YYYY")}
             </h3>
@@ -1096,8 +1122,8 @@ export default function CalendarView({
       )}
 
       {editingTask && editDraft && (
-        <div style={modalOverlayStyle} onClick={() => setEditingTask(null)}>
-          <div style={modalStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={editDialogTitleId}>
+        <div style={calendarModalOverlayStyle} onClick={() => setEditingTask(null)}>
+          <div style={calendarModalStyle} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={editDialogTitleId}>
             <h3 id={editDialogTitleId} style={{ marginTop: 0, marginBottom: "14px", color: "var(--text-color, white)", fontStyle: "italic" }}>
               Edit Task
             </h3>
