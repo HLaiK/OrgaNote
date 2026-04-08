@@ -379,7 +379,8 @@ export default function CalendarView({
   const renderTaskBadges = (list) => {
     if (!list.length) return null;
 
-    const visible = list.slice(0, 2);
+    const visibleLimit = isPhone ? 1 : 2;
+    const visible = list.slice(0, visibleLimit);
     const overflow = list.length - visible.length;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -392,9 +393,9 @@ export default function CalendarView({
             style={{
               background: groupColorById.get(Number(item.group_id)) || "rgba(100,120,200,0.55)",
               color: "#fff",
-              fontSize: "0.68rem",
+              fontSize: isPhone ? "0.56rem" : "0.68rem",
               fontWeight: 600,
-              padding: "1px 5px",
+              padding: isPhone ? "1px 3px" : "1px 5px",
               borderRadius: "3px",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -411,7 +412,7 @@ export default function CalendarView({
           </button>
         ))}
         {overflow > 0 && (
-          <div style={{ fontSize: "0.62rem", color: "var(--text-color, rgba(255,255,255,0.5))", paddingLeft: "2px" }}>
+          <div style={{ fontSize: isPhone ? "0.55rem" : "0.62rem", color: "var(--text-color, rgba(255,255,255,0.5))", paddingLeft: "2px" }}>
             +{overflow} more
           </div>
         )}
@@ -524,7 +525,8 @@ export default function CalendarView({
   }, [anchorDate]);
 
   const isCompactLandscape = isLandscape && (isPhone || isTablet);
-  const monthColumnTemplate = isCompactLandscape
+  const fitMonthToViewport = isPhone || isCompactLandscape;
+  const monthColumnTemplate = fitMonthToViewport
     ? "repeat(7, minmax(0, 1fr))"
     : isCompact
       ? `repeat(7, minmax(${isPhone ? 84 : 96}px, 1fr))`
@@ -544,10 +546,10 @@ export default function CalendarView({
   const titleFontSize = isCompactLandscape ? "0.9rem" : "1rem";
   const titleButtonGap = isCompactLandscape ? "4px" : "6px";
   const navPadding = isCompactLandscape ? "4px 6px" : navButtonStyle.padding;
-  const monthHeaderRowHeight = isCompactLandscape ? 26 : 30;
-  const monthCellPadding = isCompactLandscape ? "3px 4px" : "4px 6px";
-  const monthDayFontSize = isCompactLandscape ? "11px" : "12px";
-  const monthBadgeFontSize = isCompactLandscape ? "0.6rem" : "0.68rem";
+  const monthHeaderRowHeight = isPhone ? 22 : isCompactLandscape ? 26 : 30;
+  const monthCellPadding = isPhone ? "2px 2px" : isCompactLandscape ? "3px 4px" : "4px 6px";
+  const monthDayFontSize = isPhone ? "10px" : isCompactLandscape ? "11px" : "12px";
+  const monthBadgeFontSize = isPhone ? "0.56rem" : isCompactLandscape ? "0.6rem" : "0.68rem";
   const weekSectionPadding = isCompactLandscape ? "6px" : "8px";
   const weekHeaderFontSize = isCompactLandscape ? "0.68rem" : "0.75rem";
   const weekDateFontSize = isCompactLandscape ? "0.88rem" : "1rem";
@@ -686,14 +688,14 @@ export default function CalendarView({
             gridTemplateColumns: monthColumnTemplate,
             gridTemplateRows: `${monthHeaderRowHeight}px repeat(${monthGrid.length}, 1fr)`,
             overflow: "hidden",
-            width: isCompactLandscape ? "100%" : isCompact ? "max-content" : "100%",
-            minWidth: isCompactLandscape ? 0 : isCompact ? "100%" : 0,
+            width: fitMonthToViewport ? "100%" : isCompact ? "max-content" : "100%",
+            minWidth: fitMonthToViewport ? 0 : isCompact ? "100%" : 0,
           }}>
             {/* Day-of-week headers */}
             {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => (
               <div key={d} style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: isCompactLandscape ? "10px" : "11px", fontWeight: 600, textTransform: "uppercase",
+                fontSize: isPhone ? "9px" : isCompactLandscape ? "10px" : "11px", fontWeight: 600, textTransform: "uppercase",
                 letterSpacing: "0.5px", color: "var(--text-color, rgba(255,255,255,0.5))",
                 background: "rgba(255,255,255,0.04)",
                 borderBottom: "2px solid rgba(255,255,255,0.2)",
