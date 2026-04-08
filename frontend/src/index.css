@@ -5,31 +5,30 @@
   box-sizing: border-box;
 }
 
-html {
-  min-height: 100%;
-  background-color: var(--bg-color, #A7C4A0);
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
-
 /* App background matches your sketch */
+html,
 body {
   background-color: var(--bg-color, #A7C4A0); /* soft green */
   font-family: 'Raleway', sans-serif;
   color: var(--text-color, #2A2A2A);
   margin: 0;
   padding: 0;
+  min-height: 100%;
+}
+
+html {
+  min-height: 100%;
+  background-color: var(--bg-color, #A7C4A0);
+}
+
+body {
   min-height: 100vh;
-  min-height: -webkit-fill-available;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
+  min-height: 100dvh;
 }
 
 #root {
   min-height: 100vh;
-  min-height: -webkit-fill-available;
+  min-height: 100dvh;
 }
 
 /* Smooth text rendering */

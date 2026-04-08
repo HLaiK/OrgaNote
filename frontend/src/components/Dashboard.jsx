@@ -340,6 +340,19 @@ export default function Dashboard({themeColor}) {
     }
   };
 
+  const applyPageBackground = React.useCallback((backgroundValue, imageValue = '') => {
+    const pageRoots = [document.documentElement, document.body];
+    pageRoots.forEach((node) => {
+      node.style.background = backgroundValue || '';
+      node.style.backgroundColor = backgroundValue || '';
+      node.style.backgroundImage = imageValue ? `url(${imageValue})` : '';
+      node.style.backgroundSize = imageValue ? 'cover' : '';
+      node.style.backgroundPosition = imageValue ? 'center center' : '';
+      node.style.backgroundRepeat = imageValue ? 'no-repeat' : '';
+      node.style.backgroundAttachment = imageValue ? 'scroll' : '';
+    });
+  }, []);
+
   useEffect(() => {
     let active = true;
     async function loadFilterGroups() {
@@ -421,8 +434,7 @@ export default function Dashboard({themeColor}) {
         }
         console.log('[Dashboard] Mount effect: applying saved background:', bgToUse);
         document.documentElement.style.setProperty("--bg-color", bgToUse);
-        // Also apply directly to body
-        document.body.style.background = bgToUse;
+        applyPageBackground(bgToUse, '');
         // try to use saved background as initial bgColor; if gradient, extract colors
         if (bgToUse.includes("linear-gradient")) {
           setUseGradient(true);
@@ -452,14 +464,7 @@ export default function Dashboard({themeColor}) {
       try {
         const savedImg = localStorage.getItem('organote_bg_image');
         if (savedImg) {
-          document.documentElement.style.backgroundImage = `url(${savedImg})`;
-          document.documentElement.style.backgroundSize = 'cover';
-          document.documentElement.style.backgroundPosition = 'center';
-          document.documentElement.style.backgroundRepeat = 'no-repeat';
-          document.body.style.backgroundImage = `url(${savedImg})`;
-          document.body.style.backgroundSize = 'cover';
-          document.body.style.backgroundPosition = 'center';
-          document.body.style.backgroundRepeat = 'no-repeat';
+          applyPageBackground(bgToUse || document.documentElement.style.getPropertyValue("--bg-color"), savedImg);
         }
       } catch (imgErr) {}
     } catch (e) {
@@ -475,32 +480,17 @@ export default function Dashboard({themeColor}) {
     if (isInitialMount.current) return;
     const bgStr = useGradient ? `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)` : bgColor;
     document.documentElement.style.setProperty("--bg-color", bgStr);
-    // Also apply directly to body
-    document.body.style.background = bgStr;
-  }, [bgColor, gradientColor, useGradient]);
+    applyPageBackground(bgStr, bgImage);
+  }, [applyPageBackground, bgColor, gradientColor, useGradient, bgImage]);
 
-  // Apply/remove background image on body whenever it changes
+  // Apply/remove background image on the full page whenever it changes
   useEffect(() => {
     if (bgImage) {
-      document.documentElement.style.backgroundImage = `url(${bgImage})`;
-      document.documentElement.style.backgroundSize = 'cover';
-      document.documentElement.style.backgroundPosition = 'center';
-      document.documentElement.style.backgroundRepeat = 'no-repeat';
-      document.body.style.backgroundImage = `url(${bgImage})`;
-      document.body.style.backgroundSize = 'cover';
-      document.body.style.backgroundPosition = 'center';
-      document.body.style.backgroundRepeat = 'no-repeat';
+      applyPageBackground(document.documentElement.style.getPropertyValue("--bg-color"), bgImage);
     } else {
-      document.documentElement.style.backgroundImage = '';
-      document.documentElement.style.backgroundSize = '';
-      document.documentElement.style.backgroundPosition = '';
-      document.documentElement.style.backgroundRepeat = '';
-      document.body.style.backgroundImage = '';
-      document.body.style.backgroundSize = '';
-      document.body.style.backgroundPosition = '';
-      document.body.style.backgroundRepeat = '';
+      applyPageBackground(document.documentElement.style.getPropertyValue("--bg-color"), '');
     }
-  }, [bgImage]);
+  }, [applyPageBackground, bgImage]);
 
   // persist background/button/text into organote_theme when bg/gradient changes
   // BUT skip during initial mount (isInitialMount.current is true)
@@ -664,8 +654,7 @@ export default function Dashboard({themeColor}) {
       console.log('[Theme] Verified in localStorage:', localStorage.getItem("organote_theme"));
       // immediately apply the CSS variable
       document.documentElement.style.setProperty("--bg-color", bgStr);
-      // Also apply directly to body
-      document.body.style.background = bgStr;
+      applyPageBackground(bgStr, bgImage);
       console.log('[Theme] Applied to both documentElement CSS var and body.style.background');
     } catch (e) {
       console.error('[Theme] Error saving background:', e);
