@@ -340,6 +340,64 @@ export default function Dashboard({themeColor}) {
     }
   };
 
+  const setBrowserChromeTint = React.useCallback((color) => {
+    if (!color || typeof document === 'undefined') return;
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', color);
+    }
+  }, []);
+
+  const pickTintColor = React.useCallback((backgroundValue) => {
+    const normalized = normalizeColor(backgroundValue);
+    return normalized || '#A7C4A0';
+  }, []);
+
+  const saveBrowserChromeTint = React.useCallback((color) => {
+    const tint = color || '#A7C4A0';
+    try {
+      localStorage.setItem('organote_browser_tint', tint);
+    } catch (e) {}
+    setBrowserChromeTint(tint);
+  }, [setBrowserChromeTint]);
+
+  const extractThemeTintFromImage = React.useCallback((dataUrl) => new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        const sampleSize = 24;
+        canvas.width = sampleSize;
+        canvas.height = sampleSize;
+        context.drawImage(image, 0, 0, sampleSize, sampleSize);
+        const { data } = context.getImageData(0, 0, sampleSize, sampleSize);
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let count = 0;
+        for (let index = 0; index < data.length; index += 4) {
+          const alpha = data[index + 3];
+          if (alpha < 32) continue;
+          red += data[index];
+          green += data[index + 1];
+          blue += data[index + 2];
+          count += 1;
+        }
+        if (!count) {
+          resolve('#A7C4A0');
+          return;
+        }
+        const toHex = (value) => Math.round(value / count).toString(16).padStart(2, '0');
+        resolve(`#${toHex(red)}${toHex(green)}${toHex(blue)}`);
+      } catch (error) {
+        resolve('#A7C4A0');
+      }
+    };
+    image.onerror = () => resolve('#A7C4A0');
+    image.src = dataUrl;
+  }), []);
+
   const applyPageBackground = React.useCallback((backgroundValue, imageValue = '') => {
     const pageRoots = [document.documentElement, document.body];
     pageRoots.forEach((node) => {
@@ -460,6 +518,14 @@ export default function Dashboard({themeColor}) {
         document.documentElement.style.setProperty("--text-color", saved.text);
         setFontColor(saved.text);
       }
+      try {
+        const savedTint = localStorage.getItem('organote_browser_tint');
+        if (savedTint) {
+          setBrowserChromeTint(savedTint);
+        } else if (saved.background) {
+          setBrowserChromeTint(pickTintColor(saved.background));
+        }
+      } catch (themeErr) {}
       // Restore background image if one was saved
       try {
         const savedImg = localStorage.getItem('organote_bg_image');
@@ -473,7 +539,7 @@ export default function Dashboard({themeColor}) {
       // Mark initialization as complete; now persist effects can save changes
       isInitialMount.current = false;
     }
-  }, []);
+  }, [applyPageBackground, pickTintColor, setBrowserChromeTint]);
   // Apply color changes to the document (keeps backward compatibility)
   // Skip during initialization since applySavedTheme() already set these
   React.useEffect(() => {
@@ -481,7 +547,10 @@ export default function Dashboard({themeColor}) {
     const bgStr = useGradient ? `linear-gradient(135deg, ${bgColor} 0%, ${gradientColor} 100%)` : bgColor;
     document.documentElement.style.setProperty("--bg-color", bgStr);
     applyPageBackground(bgStr, bgImage);
-  }, [applyPageBackground, bgColor, gradientColor, useGradient, bgImage]);
+    if (!bgImage) {
+      saveBrowserChromeTint(pickTintColor(bgStr));
+    }
+  }, [applyPageBackground, bgColor, bgImage, gradientColor, pickTintColor, saveBrowserChromeTint, useGradient]);
 
   // Apply/remove background image on the full page whenever it changes
   useEffect(() => {
@@ -489,8 +558,11 @@ export default function Dashboard({themeColor}) {
       applyPageBackground(document.documentElement.style.getPropertyValue("--bg-color"), bgImage);
     } else {
       applyPageBackground(document.documentElement.style.getPropertyValue("--bg-color"), '');
+      saveBrowserChromeTint(
+        pickTintColor(document.documentElement.style.getPropertyValue("--bg-color")),
+      );
     }
-  }, [applyPageBackground, bgImage]);
+  }, [applyPageBackground, bgImage, pickTintColor, saveBrowserChromeTint]);
 
   // persist background/button/text into organote_theme when bg/gradient changes
   // BUT skip during initial mount (isInitialMount.current is true)
@@ -655,6 +727,9 @@ export default function Dashboard({themeColor}) {
       // immediately apply the CSS variable
       document.documentElement.style.setProperty("--bg-color", bgStr);
       applyPageBackground(bgStr, bgImage);
+      if (!bgImage) {
+        saveBrowserChromeTint(pickTintColor(bgStr));
+      }
       console.log('[Theme] Applied to both documentElement CSS var and body.style.background');
     } catch (e) {
       console.error('[Theme] Error saving background:', e);
@@ -686,13 +761,15 @@ export default function Dashboard({themeColor}) {
       return;
     }
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const dataUrl = ev.target.result;
       try {
         localStorage.setItem('organote_bg_image', dataUrl);
         localStorage.setItem('organote_bg_image_name', file.name);
         setBgImage(dataUrl);
         setBgImageName(file.name);
+        const tint = await extractThemeTintFromImage(dataUrl);
+        saveBrowserChromeTint(tint);
       } catch (err) {
         alert('Image is too large to save. Try a file smaller than 4 MB.');
       }
@@ -708,6 +785,7 @@ export default function Dashboard({themeColor}) {
     } catch (e) {}
     setBgImage('');
     setBgImageName('');
+    saveBrowserChromeTint(pickTintColor(document.documentElement.style.getPropertyValue("--bg-color")));
   };
 
   const formatRemTime = (raw) => {
