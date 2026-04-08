@@ -452,6 +452,10 @@ export default function Dashboard({themeColor}) {
       try {
         const savedImg = localStorage.getItem('organote_bg_image');
         if (savedImg) {
+          document.documentElement.style.backgroundImage = `url(${savedImg})`;
+          document.documentElement.style.backgroundSize = 'cover';
+          document.documentElement.style.backgroundPosition = 'center';
+          document.documentElement.style.backgroundRepeat = 'no-repeat';
           document.body.style.backgroundImage = `url(${savedImg})`;
           document.body.style.backgroundSize = 'cover';
           document.body.style.backgroundPosition = 'center';
@@ -478,11 +482,19 @@ export default function Dashboard({themeColor}) {
   // Apply/remove background image on body whenever it changes
   useEffect(() => {
     if (bgImage) {
+      document.documentElement.style.backgroundImage = `url(${bgImage})`;
+      document.documentElement.style.backgroundSize = 'cover';
+      document.documentElement.style.backgroundPosition = 'center';
+      document.documentElement.style.backgroundRepeat = 'no-repeat';
       document.body.style.backgroundImage = `url(${bgImage})`;
       document.body.style.backgroundSize = 'cover';
       document.body.style.backgroundPosition = 'center';
       document.body.style.backgroundRepeat = 'no-repeat';
     } else {
+      document.documentElement.style.backgroundImage = '';
+      document.documentElement.style.backgroundSize = '';
+      document.documentElement.style.backgroundPosition = '';
+      document.documentElement.style.backgroundRepeat = '';
       document.body.style.backgroundImage = '';
       document.body.style.backgroundSize = '';
       document.body.style.backgroundPosition = '';
