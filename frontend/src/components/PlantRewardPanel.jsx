@@ -77,7 +77,7 @@ function getSetupHint(step) {
   }
 }
 
-function RewardCarousel({ options, onSelect, selectedId, renderLabel, renderImage }) {
+function RewardCarousel({ options, onSelect, selectedId, renderLabel, renderImage, renderMeta }) {
   return (
     <Carousel arrows infinite={false} dots={{ className: "reward-carousel-dots" }}>
       {options.map((option) => {
@@ -98,6 +98,7 @@ function RewardCarousel({ options, onSelect, selectedId, renderLabel, renderImag
             >
               <img src={renderImage(option)} alt={renderLabel(option)} style={styles.choiceImage} />
               <span style={styles.choiceLabel}>{renderLabel(option)}</span>
+              {renderMeta ? <span style={styles.choiceMeta}>{renderMeta(option)}</span> : null}
             </button>
           </div>
         </div>
@@ -421,6 +422,7 @@ export default function PlantRewardPanel({ completedTasks = 0, totalTasks = 0, t
             onSelect={handleChoosePlant}
             renderLabel={(plant) => plant.name}
             renderImage={(plant) => plant.icon}
+            renderMeta={(plant) => `Steps to complete: ${Math.max((plant.stageCount || 1) - 1, 0)}`}
           />
         </div>
       )}
@@ -681,6 +683,12 @@ const styles = {
     color: "var(--text-color, #2A2A2A)",
     textAlign: "center",
     fontWeight: 600,
+  },
+  choiceMeta: {
+    fontSize: "0.72rem",
+    color: "rgba(42, 42, 42, 0.8)",
+    textAlign: "center",
+    lineHeight: 1.3,
   },
   actionCard: {
     background: "rgba(255,255,255,0.55)",

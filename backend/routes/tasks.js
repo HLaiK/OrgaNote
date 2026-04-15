@@ -98,6 +98,7 @@ router.post("/", async (req, res) => {
     category,
     priority,
     due_date,
+    status,
     group_id,
     reminder_offset_minutes,
   } = req.body;
@@ -106,8 +107,8 @@ router.post("/", async (req, res) => {
     await ensureReminderColumn();
     const normalizedPriority = normalizePriority(priority);
     const result = await pool.query(
-      `INSERT INTO tasks (title, description, category, priority, due_date, reminder_offset_minutes, user_id, group_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO tasks (title, description, category, priority, due_date, reminder_offset_minutes, status, user_id, group_id)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 'pending'), $8, $9)
        RETURNING *`,
       [
         title,
@@ -116,6 +117,7 @@ router.post("/", async (req, res) => {
         normalizedPriority,
         due_date ?? null,
         due_date ? (reminder_offset_minutes ?? null) : null,
+        status ?? null,
         userId,
         group_id ?? null,
       ],

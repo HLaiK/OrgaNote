@@ -83,6 +83,8 @@ export default function CalendarView({
   const [viewMode, setViewMode] = useState("month");
   const [anchorDate, setAnchorDate] = useState(dayjs());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDayTasksModal, setShowDayTasksModal] = useState(false);
+  const [selectedDayForTasks, setSelectedDayForTasks] = useState(null);
   const [editingTask, setEditingTask] = useState(null); // task object being edited
   const [editDraft, setEditDraft] = useState(null);    // mutable copy of editingTask fields
   const [titleDropdown, setTitleDropdown] = useState(null); // null | 'month' | 'year'
@@ -105,6 +107,8 @@ export default function CalendarView({
     time: "09:00",
     priority: "",
     group_id: "",
+    status: "pending",
+    reminder_offset_minutes: 15,
   });
 
   useEffect(() => {
@@ -115,13 +119,14 @@ export default function CalendarView({
     const handleEscape = (event) => {
       if (event.key !== "Escape") return;
       if (showAddModal) setShowAddModal(false);
+      if (showDayTasksModal) setShowDayTasksModal(false);
       if (editingTask) setEditingTask(null);
       if (titleDropdown) setTitleDropdown(null);
     };
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [showAddModal, editingTask, titleDropdown]);
+  }, [showAddModal, showDayTasksModal, editingTask, titleDropdown]);
 
   const loadData = async () => {
     setLoading(true);
@@ -324,8 +329,15 @@ export default function CalendarView({
       ...prev,
       date: date.format("YYYY-MM-DD"),
       time: prev.time || "09:00",
+      status: prev.status || "pending",
+      reminder_offset_minutes: prev.reminder_offset_minutes ?? 15,
     }));
     setShowAddModal(true);
+  };
+
+  const openDayTasksModal = (date) => {
+    setSelectedDayForTasks(date);
+    setShowDayTasksModal(true);
   };
 
   const submitAddTask = async () => {
@@ -343,12 +355,16 @@ export default function CalendarView({
           due_date: toApiDueDate(draftTask.date, draftTask.time),
           priority: draftTask.priority || null,
           group_id: draftTask.group_id ? Number(draftTask.group_id) : null,
+          status: draftTask.status || "pending",
+          reminder_offset_minutes: draftTask.date
+            ? (draftTask.reminder_offset_minutes ?? 15)
+            : null,
         },
       });
 
       setTasks((prev) => [...prev, created]);
       setShowAddModal(false);
-      setDraftTask((prev) => ({ ...prev, title: "" }));
+      setDraftTask((prev) => ({ ...prev, title: "", status: "pending", reminder_offset_minutes: 15 }));
       onTasksChanged?.();
     } catch (err) {
       console.error("Create task error:", err);
@@ -376,12 +392,15 @@ export default function CalendarView({
     setAnchorDate(dayjs());
   };
 
-  const renderTaskBadges = (list) => {
+  const selectedDayTasks = selectedDayForTasks ? tasksForDay(selectedDayForTasks) : [];
+
+  const renderTaskBadges = (list, options = {}) => {
     if (!list.length) return null;
 
     const visibleLimit = isPhone ? 1 : 2;
     const visible = list.slice(0, visibleLimit);
     const overflow = list.length - visible.length;
+    const handleOverflowClick = options.onOverflowClick;
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
         {visible.map((item) => (
@@ -412,9 +431,25 @@ export default function CalendarView({
           </button>
         ))}
         {overflow > 0 && (
-          <div style={{ fontSize: isPhone ? "0.55rem" : "0.62rem", color: "var(--text-color, rgba(255,255,255,0.5))", paddingLeft: "2px" }}>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleOverflowClick?.();
+            }}
+            style={{
+              fontSize: isPhone ? "0.55rem" : "0.62rem",
+              color: "var(--text-color, rgba(255,255,255,0.65))",
+              paddingLeft: "2px",
+              background: "none",
+              border: "none",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+            aria-label={`Show ${overflow} more tasks`}
+          >
             +{overflow} more
-          </div>
+          </button>
         )}
       </div>
     );
@@ -533,15 +568,18 @@ export default function CalendarView({
     : isCompact
       ? `repeat(7, minmax(${isPhone ? 84 : 96}px, 1fr))`
       : "repeat(7, 1fr)";
-  const weekColumnMinWidth = isCompactLandscape ? 0 : isPhone ? 112 : isTablet ? 126 : 140;
-  const weekColumnTemplate = isCompactLandscape
-    ? `repeat(${rangeDays.length}, minmax(0, 1fr))`
-    : `repeat(${rangeDays.length}, minmax(${weekColumnMinWidth}px, 1fr))`;
+  const weekColumnWidth = isPhone ? 112 : 126;
+  const useScrollableWeekColumns = isTablet && !isCompactLandscape;
+  const weekColumnTemplate = useScrollableWeekColumns
+    ? `repeat(${rangeDays.length}, ${weekColumnWidth}px)`
+    : `repeat(${rangeDays.length}, minmax(0, 1fr))`;
+  const weekGridWidth = useScrollableWeekColumns ? "max-content" : "100%";
+  const weekGridMinWidth = useScrollableWeekColumns ? "100%" : 0;
   const yearColumnTemplate = isPhone
     ? "minmax(0, 1fr)"
     : isTablet
-      ? "repeat(2, minmax(240px, 1fr))"
-      : "repeat(4, minmax(220px, 1fr))";
+      ? "repeat(auto-fit, minmax(240px, 1fr))"
+      : "repeat(auto-fit, minmax(200px, 1fr))";
   const surfaceOverflow = viewMode === "day" ? "hidden" : "auto";
   const headerGap = isCompactLandscape ? "6px" : "8px";
   const headerPaddingBottom = isCompactLandscape ? "6px" : "8px";
@@ -574,11 +612,17 @@ export default function CalendarView({
     ...modalStyle,
     width: isPhone ? "calc(100% - 16px)" : modalStyle.width,
     maxWidth: isPhone ? "none" : modalStyle.maxWidth,
-    padding: isPhone ? "14px" : modalStyle.padding,
-    maxHeight: isPhone ? "78vh" : "none",
+    padding: isPhone ? "12px" : modalStyle.padding,
+    maxHeight: isPhone ? "70vh" : "none",
     overflowY: isPhone ? "auto" : "visible",
-    marginTop: isPhone ? "40px" : 0,
+    marginTop: isPhone ? "20px" : 0,
   };
+  const compactModalLabelStyle = isPhone
+    ? { ...modalLabelStyle, fontSize: "0.74rem" }
+    : modalLabelStyle;
+  const compactInputStyle = isPhone
+    ? { ...inputStyle, padding: "8px", fontSize: "0.9rem" }
+    : inputStyle;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px", height: "100%", padding: "0" }}>
@@ -780,7 +824,9 @@ export default function CalendarView({
                     {day.format("D")}
                   </div>
                   <div style={{ flex: 1, minHeight: 0, overflow: "hidden", fontSize: monthBadgeFontSize }}>
-                    {renderTaskBadges(dayTasks)}
+                    {renderTaskBadges(dayTasks, {
+                      onOverflowClick: () => openDayTasksModal(day),
+                    })}
                   </div>
                 </div>
               );
@@ -788,12 +834,13 @@ export default function CalendarView({
           </div>
         ) : viewMode === "year" ? (
           /* Year view: 4x3 grid of mini-calendars */
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: isPhone ? "12px" : "16px", display: "grid", gridTemplateColumns: yearColumnTemplate, gap: isPhone ? "12px" : "16px" }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: isPhone ? "12px" : "16px", display: "grid", gridTemplateColumns: yearColumnTemplate, gap: isPhone ? "12px" : "16px" }}>
             {yearMonths.map(({ month, weeks }) => {
               const monthStr = month.format("MMMM");
               const yearStr = month.format("YYYY");
               return (
                 <div key={month.format("YYYY-MM")} style={{
+                  minWidth: 0,
                   background: "rgba(255,255,255,0.04)",
                   borderRadius: "8px",
                   border: "1px solid rgba(255,255,255,0.1)",
@@ -970,9 +1017,9 @@ export default function CalendarView({
           </div>
         ) : (
           /* Week/5-day View */
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px", overflow: "auto", flex: 1 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", overflow: "auto", scrollbarGutter: "stable both-edges", flex: 1 }}>
             {/* Day Headers */}
-            <div style={{ display: "grid", gridTemplateColumns: weekColumnTemplate, gap: "2px", padding: weekSectionPadding, paddingBottom: isCompactLandscape ? "2px" : "4px", position: "sticky", top: 0, background: "rgba(255,255,255,0.08)", zIndex: 10, width: isCompactLandscape ? "100%" : "max-content", minWidth: "100%" }}>
+            <div style={{ display: "grid", gridTemplateColumns: weekColumnTemplate, gap: "2px", padding: weekSectionPadding, paddingBottom: isCompactLandscape ? "2px" : "4px", position: "sticky", top: 0, background: "rgba(255,255,255,0.08)", zIndex: 10, width: weekGridWidth, minWidth: weekGridMinWidth }}>
               {rangeDays.map((day) => {
                 const isToday = day.isSame(dayjs(), "day");
                 return (
@@ -982,6 +1029,7 @@ export default function CalendarView({
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
+                    minWidth: 0,
                     borderRadius: "8px",
                     padding: "6px 4px",
                     background: isToday ? "rgba(154, 215, 227, 0.24)" : "transparent",
@@ -999,7 +1047,7 @@ export default function CalendarView({
             </div>
 
             {/* Day Content */}
-            <div style={{ display: "grid", gridTemplateColumns: weekColumnTemplate, gap: "2px", padding: weekSectionPadding, flex: 1, width: isCompactLandscape ? "100%" : "max-content", minWidth: "100%" }}>
+            <div style={{ display: "grid", gridTemplateColumns: weekColumnTemplate, gap: "2px", padding: weekSectionPadding, flex: 1, width: weekGridWidth, minWidth: weekGridMinWidth }}>
               {rangeDays.map((day) => {
                 const dayTasks = tasksForDay(day);
                 const isToday = day.isSame(dayjs(), "day");
@@ -1021,6 +1069,7 @@ export default function CalendarView({
                       border: isToday ? "1px solid rgba(169, 201, 231, 0.55)" : "1px solid rgba(255,255,255,0.15)",
                       borderRadius: "6px",
                       padding: "6px",
+                      minWidth: 0,
                       background: baseDayBackground,
                       minHeight: weekCardMinHeight,
                       display: "flex",
@@ -1047,6 +1096,8 @@ export default function CalendarView({
                           style={{
                             background: groupColorById.get(Number(task.group_id)) || "rgba(255,255,255,0.18)",
                             color: "#fff",
+                            width: "100%",
+                            minWidth: 0,
                             padding: "5px 10px",
                             borderRadius: "3px",
                             fontSize: "0.75rem",
@@ -1081,23 +1132,37 @@ export default function CalendarView({
               Add Task for {dayjs(draftTask.date).format("MMM D, YYYY")}
             </h3>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <label htmlFor="calendar-add-title" style={modalLabelStyle}>Task title</label>
-              <input id="calendar-add-title" type="text" value={draftTask.title} onChange={(e) => setDraftTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={inputStyle} />
-              <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: isPhone ? "9px" : "12px" }}>
+              <label htmlFor="calendar-add-title" style={compactModalLabelStyle}>Task title</label>
+              <input id="calendar-add-title" type="text" value={draftTask.title} onChange={(e) => setDraftTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Task title" style={compactInputStyle} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="calendar-add-date" style={modalLabelStyle}>Date</label>
-                  <input id="calendar-add-date" type="date" value={draftTask.date} onChange={(e) => setDraftTask((prev) => ({ ...prev, date: e.target.value }))} style={inputStyle} />
+                  <label htmlFor="calendar-add-date" style={compactModalLabelStyle}>Date</label>
+                  <input
+                    id="calendar-add-date"
+                    type="date"
+                    value={draftTask.date}
+                    onChange={(e) =>
+                      setDraftTask((prev) => ({
+                        ...prev,
+                        date: e.target.value,
+                        reminder_offset_minutes: e.target.value
+                          ? (prev.reminder_offset_minutes ?? 15)
+                          : null,
+                      }))
+                    }
+                    style={compactInputStyle}
+                  />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="calendar-add-time" style={modalLabelStyle}>Time</label>
-                  <input id="calendar-add-time" type="time" value={draftTask.time} onChange={(e) => setDraftTask((prev) => ({ ...prev, time: e.target.value }))} style={inputStyle} />
+                  <label htmlFor="calendar-add-time" style={compactModalLabelStyle}>Time</label>
+                  <input id="calendar-add-time" type="time" value={draftTask.time} onChange={(e) => setDraftTask((prev) => ({ ...prev, time: e.target.value }))} style={compactInputStyle} />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1fr", gap: "8px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="calendar-add-priority" style={modalLabelStyle}>Priority</label>
-                  <select id="calendar-add-priority" value={draftTask.priority} onChange={(e) => setDraftTask((prev) => ({ ...prev, priority: e.target.value }))} style={inputStyle}>
+                  <label htmlFor="calendar-add-priority" style={compactModalLabelStyle}>Priority</label>
+                  <select id="calendar-add-priority" value={draftTask.priority} onChange={(e) => setDraftTask((prev) => ({ ...prev, priority: e.target.value }))} style={compactInputStyle}>
                     <option value="">No priority</option>
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -1105,17 +1170,122 @@ export default function CalendarView({
                   </select>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  <label htmlFor="calendar-add-group" style={modalLabelStyle}>Group</label>
-                  <select id="calendar-add-group" value={draftTask.group_id} onChange={(e) => setDraftTask((prev) => ({ ...prev, group_id: e.target.value }))} style={inputStyle}>
+                  <label htmlFor="calendar-add-group" style={compactModalLabelStyle}>Group</label>
+                  <select id="calendar-add-group" value={draftTask.group_id} onChange={(e) => setDraftTask((prev) => ({ ...prev, group_id: e.target.value }))} style={compactInputStyle}>
                     <option value="">Ungrouped</option>
                     {groups.map((group) => (<option key={group.id} value={group.id}>{group.name}</option>))}
                   </select>
                 </div>
               </div>
+              <label htmlFor="calendar-add-status" style={compactModalLabelStyle}>Status</label>
+              <select
+                id="calendar-add-status"
+                value={draftTask.status}
+                onChange={(e) => setDraftTask((prev) => ({ ...prev, status: e.target.value }))}
+                style={compactInputStyle}
+              >
+                <option value="pending">Pending</option>
+                <option value="in-progress">In Progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="completed">Completed</option>
+              </select>
+              {draftTask.date && (
+                <>
+                  <label htmlFor="calendar-add-reminder" style={compactModalLabelStyle}>Reminder</label>
+                  <select
+                    id="calendar-add-reminder"
+                    value={draftTask.reminder_offset_minutes ?? ""}
+                    onChange={(e) =>
+                      setDraftTask((prev) => ({
+                        ...prev,
+                        reminder_offset_minutes: e.target.value === "" ? null : Number(e.target.value),
+                      }))
+                    }
+                    style={compactInputStyle}
+                  >
+                    {TASK_REMINDER_OPTIONS.map((option) => (
+                      <option key={option.value || "none"} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </div>
-            <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexDirection: isPhone ? "column" : "row" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexDirection: "row" }}>
               <button type="button" style={saveButtonStyle} onClick={submitAddTask}>Save</button>
               <button type="button" style={cancelButtonStyle} onClick={() => setShowAddModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDayTasksModal && selectedDayForTasks && (
+        <div style={calendarModalOverlayStyle} onClick={() => setShowDayTasksModal(false)}>
+          <div
+            style={calendarModalStyle}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-day-tasks-title"
+          >
+            <h3 id="calendar-day-tasks-title" style={{ marginTop: 0, marginBottom: "14px", color: "var(--text-color, white)", fontStyle: "italic" }}>
+              Tasks for {selectedDayForTasks.format("MMM D, YYYY")}
+            </h3>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: isPhone ? "44vh" : "50vh", overflowY: "auto", paddingRight: "2px" }}>
+              {selectedDayTasks.length === 0 ? (
+                <div style={{ color: "var(--text-color, rgba(255,255,255,0.75))", fontSize: "0.9rem", padding: "8px 2px" }}>
+                  No tasks yet for this day.
+                </div>
+              ) : (
+                selectedDayTasks.map((task) => (
+                  <button
+                    key={`day-task-${task.id}`}
+                    type="button"
+                    onClick={(e) => {
+                      setShowDayTasksModal(false);
+                      openEditModal(task, e);
+                    }}
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.22)",
+                      background: "rgba(255,255,255,0.14)",
+                      borderRadius: "8px",
+                      padding: "8px 10px",
+                      color: "var(--text-color, white)",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                    }}
+                    aria-label={`Edit task ${task.title}`}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: task.status === "completed" ? "line-through" : "none", opacity: task.status === "completed" ? 0.7 : 1 }}>
+                      {task.title}
+                    </span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-color, rgba(255,255,255,0.8))" }}>
+                      {task.status || "pending"}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexDirection: isPhone ? "column" : "row" }}>
+              <button
+                type="button"
+                style={saveButtonStyle}
+                onClick={() => {
+                  setShowDayTasksModal(false);
+                  openAddTaskModal(selectedDayForTasks);
+                }}
+              >
+                Add task
+              </button>
+              <button type="button" style={cancelButtonStyle} onClick={() => setShowDayTasksModal(false)}>
+                Close
+              </button>
             </div>
           </div>
         </div>
