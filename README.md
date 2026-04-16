@@ -5,7 +5,7 @@ OrgaNote is a minimalist productivity tool that auto-formats messy to-do lists i
 ## Features
 
 - **Smart Task Input** - Write tasks in natural language, and the NLP engine automatically parses and organizes them
-- **Multiple Views** - Switch between List and Kanban board views to organize tasks your way
+- **Multiple Views** - Switch between List, Kanban board and Calendar views to organize tasks your way
 - **Task Organization** - Categorize tasks (Work, School, Personal, Other) and set priorities (High, Medium, Low)
 - **Calendar Integration** - Visualize tasks on a calendar with due dates
 - **Progress Tracking** - Monitor your completion progress with visual indicators
