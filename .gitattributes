@@ -1,0 +1,7 @@
+**/node_modules/** linguist-vendored
+
+**/dist/** linguist-generated=true
+**/build/** linguist-generated=true
+**/coverage/** linguist-generated=true
+
+**/package-lock.json linguist-generated=true
