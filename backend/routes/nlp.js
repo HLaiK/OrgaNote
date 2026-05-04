@@ -117,8 +117,9 @@ function parseLine(line, tzOffset) {
 
   // If no relative time matched, use chrono for date parsing
   if (!due) {
-    const parsed = chrono.parse(line, new Date(), {
-      timezoneOffset: -tzOffset,
+    const parsed = chrono.parse(line, {
+      date: new Date(),
+      timezone: -tzOffset,
     });
     if (parsed.length > 0) {
       // Get the start date which includes time
