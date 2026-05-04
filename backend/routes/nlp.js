@@ -108,7 +108,7 @@ function parseRelativeTime(text) {
   return null;
 }
 
-function parseLine(line) {
+function parseLine(line, tzOffset) {
   const priority = classifyPriority(line);
 
   // First check for explicit relative time phrases
@@ -117,7 +117,9 @@ function parseLine(line) {
 
   // If no relative time matched, use chrono for date parsing
   if (!due) {
-    const parsed = chrono.parse(line);
+    const parsed = chrono.parse(line, new Date(), {
+      timezoneOffset: -tzOffset,
+    });
     if (parsed.length > 0) {
       // Get the start date which includes time
       due = parsed[0].start.date();
@@ -143,6 +145,8 @@ router.post("/organize", async (req, res) => {
   try {
     const raw_input = req.body.raw_input;
     const userId = req.headers["x-user-id"];
+    // getTimezoneOffset() returns minutes west of UTC (positive for UTC-N zones)
+    const tzOffset = parseInt(req.body.timezone_offset, 10) || 0;
 
     if (!raw_input) {
       return res.status(400).json({ error: "raw_input is required" });
@@ -153,7 +157,7 @@ router.post("/organize", async (req, res) => {
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
-    const parsedTasks = lines.map(parseLine);
+    const parsedTasks = lines.map((l) => parseLine(l, tzOffset));
     const groupsResult = await pool.query(
       "SELECT id, name FROM task_groups WHERE user_id = $1",
       [userId],

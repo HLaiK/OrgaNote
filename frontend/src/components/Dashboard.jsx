@@ -923,7 +923,7 @@ export default function Dashboard({themeColor}) {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [showAddTask, showSettings]);
 
-  const useFullWidthCalendarLayout = isTablet && isTabletLandscape && viewMode === 'calendar';
+  const useFullWidthCalendarLayout = isTabletLandscape && viewMode === 'calendar';
   const useFullWidthKanbanLayout = isLandscape && isCompact && viewMode === 'kanban';
   const useStackedCompactLayout = (isCompact && !isTabletLandscape) || useFullWidthCalendarLayout || useFullWidthKanbanLayout;
   const compactGap = isPhone ? "12px" : isTablet ? "16px" : styles.container.gap;

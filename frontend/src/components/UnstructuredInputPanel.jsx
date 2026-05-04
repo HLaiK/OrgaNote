@@ -15,7 +15,7 @@ export default function UnstructuredInputPanel({ onTasksCreated }) {
     try {
       await apiFetch("/nlp/organize", {
         method: "POST",
-        body: { raw_input: text }
+        body: { raw_input: text, timezone_offset: new Date().getTimezoneOffset() }
       });
 
       setText("");
