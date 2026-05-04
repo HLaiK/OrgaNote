@@ -146,7 +146,7 @@ router.post("/organize", async (req, res) => {
     const raw_input = req.body.raw_input;
     const userId = req.headers["x-user-id"];
     // getTimezoneOffset() returns minutes west of UTC (positive for UTC-N zones)
-    const tzOffset = parseInt(req.body.timezone_offset, 10) || 0;
+    const tzOffset = parseInt(req.headers["x-timezone-offset"], 10) || 0;
 
     if (!raw_input) {
       return res.status(400).json({ error: "raw_input is required" });

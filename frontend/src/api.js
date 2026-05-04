@@ -24,6 +24,7 @@ export async function apiFetch(path, options = {}) {
     headers: {
       "Content-Type": "application/json",
       "x-user-id": userId,
+      "x-timezone-offset": String(new Date().getTimezoneOffset()),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
